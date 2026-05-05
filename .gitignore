@@ -1,0 +1,9 @@
+# Git ignore file
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+.ipynb_checkpoints/
+data/
+models/
+outputs/
