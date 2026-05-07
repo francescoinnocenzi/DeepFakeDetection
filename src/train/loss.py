@@ -14,6 +14,9 @@ class MultiTaskLoss(nn.Module):
         self.ce_loss = nn.CrossEntropyLoss()
 
     def forward(self, logits_real_fake, logits_transform, labels_real_fake, labels_transform):
+        # Ensure labels_real_fake matches the (batch_size, 1) shape and float type for BCE loss
+        labels_real_fake = labels_real_fake.view(-1, 1).float()
+        
         # Computes the combined total loss
         loss_rf = self.bce_loss(logits_real_fake, labels_real_fake)
         loss_tf = self.ce_loss(logits_transform, labels_transform)

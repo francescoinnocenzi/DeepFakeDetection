@@ -21,7 +21,7 @@ def get_dataloaders(data_dir, batch_size=32, total_samples_per_class=1200):
     ])
     
     # Load the balanced subset
-    full_dataset = RRDataset(root_dir=data_dir, samples_per_class=total_samples_per_class, transform=data_transform)
+    full_dataset = RRDataset(root_dir=data_dir, samples_per_class=1200, transform=data_transform)
     
     # Split into Train and Validation (e.g., 80% train, 20% val)
     train_size = int(0.8 * len(full_dataset))

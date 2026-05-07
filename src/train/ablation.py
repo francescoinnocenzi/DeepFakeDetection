@@ -1,12 +1,15 @@
 import torch
-from torch.utils.data import DataLoader, TensorDataset
 from src.train.loss import MultiTaskLoss
-from src.train.loops import MultiTaskModel, train_epoch
+from src.train.loops import MultiTaskModel, train_epoch, validate_epoch
 
-
-
-#The ablation engine iterates through different weightings ($\alpha$ and $\beta$) to analyze the trade-offs between the real/fake and transformation classification accuracies.
-def run_ablation_study():
+# The ablation engine iterates through different weightings ($\alpha$ and $\beta$) to analyze the trade-offs between the real/fake and transformation classification accuracies.
+def run_ablation_study(train_loader, val_loader):
+    """
+    Run an ablation study by varying the weights of the multi-task loss components.
+    Args:
+        train_loader: DataLoader for training data.
+        val_loader: DataLoader for validation data.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Example set of weight combinations
@@ -16,32 +19,29 @@ def run_ablation_study():
         (0.2, 0.8),
     ]
     
-    # Mock data for testing integration (B, 3, 224, 224)
-    dummy_images = torch.randn(10, 3, 224, 224)
-    dummy_labels_rf = torch.randint(0, 2, (10, 1)).float()
-    dummy_labels_tf = torch.randint(0, 3, (10,))
-    
-    dataset = TensorDataset(dummy_images, dummy_labels_rf, dummy_labels_tf)
-    dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
-    
     results = {}
     
     for alpha, beta in weight_combinations:
-        print(f"Running iteration with Alpha={alpha}, Beta={beta}")
+        print(f"\n--- Running iteration with Alpha={alpha}, Beta={beta} ---")
         
         model = MultiTaskModel().to(device)
         criterion = MultiTaskLoss(alpha=alpha, beta=beta)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
         
-        # Train for 2 mock epochs
-        for epoch in range(2):
-            avg_loss = train_epoch(model, dataloader, criterion, optimizer, device)
+        # Train for a few epochs
+        num_epochs = 5
+        for epoch in range(num_epochs):
+            train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
+            val_loss = validate_epoch(model, val_loader, criterion, device)
+            print(f"Epoch [{epoch+1}/{num_epochs}] - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
             
-        results[(alpha, beta)] = avg_loss
+        results[(alpha, beta)] = {"train": train_loss, "val": val_loss}
         
-    print("\nAblation Study Complete. Summary of losses:")
+    print("\n" + "="*40)
+    print("Ablation Study Complete. Summary:")
+    print("="*40)
     for key, val in results.items():
-        print(f"Weights (alpha={key[0]}, beta={key[1]}) -> Average Loss: {val:.4f}")
-
-if __name__ == "__main__":
-    run_ablation_study()
+        print(f"Weights (alpha={key[0]}, beta={key[1]})")
+        print(f"  -> Final Train Loss: {val['train']:.4f}")
+        print(f"  -> Final Val Loss:   {val['val']:.4f}")
+    print("="*40)
