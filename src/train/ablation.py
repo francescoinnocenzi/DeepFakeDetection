@@ -26,7 +26,7 @@ def run_ablation_study(train_loader, val_loader):
         
         model = MultiTaskModel().to(device)
         criterion = MultiTaskLoss(alpha=alpha, beta=beta)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001) #0.001 old
         
         # Train for a few epochs
         num_epochs = 5

@@ -26,10 +26,27 @@ def get_dataloaders(data_dir, batch_size=32, total_samples_per_class=1200):
     # Split into Train and Validation (e.g., 80% train, 20% val)
     train_size = int(0.8 * len(full_dataset))
     val_size = len(full_dataset) - train_size
-    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+    generator = torch.Generator().manual_seed(42)
+    train_dataset, val_dataset = random_split(
+        full_dataset, 
+        [train_size, val_size], 
+        generator=generator
+    )
     
     # Create the Loaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-    
+    train_loader = DataLoader(
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True, 
+        num_workers=4,      # Aumentato per caricamento parallelo
+        pin_memory=True     # Ottimizzato per la tua RTX 5070
+    )
+
+    val_loader = DataLoader(
+        val_dataset, 
+        batch_size=batch_size, 
+        shuffle=False, 
+        num_workers=4, 
+        pin_memory=True
+    )
     return train_loader, val_loader
