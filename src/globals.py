@@ -1,1 +1,14 @@
 # Global constants and configurations
+
+# Data loading
+RANDOM_SEED = 42
+TRAIN_VAL_SPLIT = 0.8
+SAMPLES_PER_CLASS = 2
+BATCH_SIZE = 32
+NUM_WORKERS = 4
+PIN_MEMORY = True
+
+# Training
+ABLATION_NUM_EPOCHS = 5
+EARLY_STOP_PATIENCE = 3
+ABLATION_LEARNING_RATE = 1e-4

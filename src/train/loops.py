@@ -58,6 +58,11 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
 def validate_epoch(model, dataloader, criterion, device):
     model.eval()
     running_loss = 0.0
+
+    # Set up counters for accuracy
+    correct_rf = 0
+    correct_tf = 0
+    total_samples = 0
     
     with torch.no_grad():
         for images, labels_rf, labels_tf in dataloader:
@@ -69,5 +74,23 @@ def validate_epoch(model, dataloader, criterion, device):
             loss, loss_rf, loss_tf = criterion(logits_rf, logits_tf, labels_rf, labels_tf)
             
             running_loss += loss.item()
+
+            # Calculate Real/Fake Accuracy (Binary)
+            preds_rf = torch.sigmoid(logits_rf).round().squeeze()
             
-    return running_loss / len(dataloader)
+            # Compare predictions to true labels and count the matches
+            correct_rf += (preds_rf == labels_rf.squeeze()).sum().item()
+            
+            # Calculate Transform Accuracy (Multi-class) ---
+            preds_tf = torch.argmax(logits_tf, dim=1)
+            correct_tf += (preds_tf == labels_tf).sum().item()
+            
+            # Update total samples count
+            total_samples += labels_rf.size(0)
+    
+    # Calculate Final Averages
+    avg_loss = running_loss / len(dataloader)
+    acc_rf = correct_rf / total_samples
+    acc_tf = correct_tf / total_samples
+
+    return running_loss / len(dataloader), acc_rf, acc_tf
