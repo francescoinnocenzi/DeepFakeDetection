@@ -3,6 +3,8 @@ import random
 from PIL import Image
 from torch.utils.data import Dataset
 
+Image.MAX_IMAGE_PIXELS = None #To block warning on size of an image
+
 class RRDataset(Dataset):
     """
     Custom Dataset for Real vs. Fake Image Classification with Transform Labels.

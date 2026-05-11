@@ -30,3 +30,5 @@ Head 2 (Transformation): You added a parallel linear layer that maps those same 
    
 You engineered the logic that allows the model to actually learn. The Joint Loss Function:
 You combined BCE (Binary Cross Entropy) With Logits Loss (for the binary Real/Fake task) and Cross Entropy Loss (for the 3-class transformation task). You added tunable weights ($\alpha$ and $\beta$) so you can control which task the model should prioritize during your ablation studies.The Training Loop: You wrote a robust train_epoch function that handles the complete deep learning lifecycle: moving data to the GPU, making predictions (forward pass), calculating the error, and using the Adam optimizer to update the network's weights (backward pass).
+#TO display images in each repository of dataset
+for dir in src/data/RRDataset_final/*/*; do echo "$dir: $(ls -1 "$dir" | wc -l)"; done
