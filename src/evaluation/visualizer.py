@@ -1,6 +1,8 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, accuracy_score
 
@@ -162,3 +164,140 @@ def plot_ablation_study(results_dict):
     plt.savefig("ablation_study.png", dpi=300)
     plt.show()
     print("Saved: ablation_study.png")
+
+
+def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, device='cpu'):
+    """
+    Computes a GradCAM heatmap for a single image.
+    Hooks into model.backbone.layer4 (last conv block of ResNet-50).
+
+    Args:
+        model       : MultiTaskModel instance (in eval mode)
+        image_tensor: (1, 3, 224, 224) normalised tensor
+        head        : 'real_fake' or 'transform'
+        class_idx   : class to explain (None → uses the predicted class)
+        device      : torch device
+
+    Returns:
+        cam: (224, 224) numpy array with values in [0, 1]
+    """
+    model.eval()
+
+    gradients = []
+    activations = []
+
+    def _fwd_hook(module, input, output):
+        activations.append(output)
+
+    def _bwd_hook(module, grad_input, grad_output):
+        gradients.append(grad_output[0])
+
+    target_layer = model.backbone.layer4[-1]
+    fwd_handle = target_layer.register_forward_hook(_fwd_hook)
+    bwd_handle = target_layer.register_full_backward_hook(_bwd_hook)
+
+    # Forward pass — gradients must flow, so no torch.no_grad()
+    img = image_tensor.to(device)
+    logits_rf, logits_trans = model(img)
+
+    if head == 'real_fake':
+        score = logits_rf[0, 0]
+    else:
+        if class_idx is None:
+            class_idx = logits_trans.argmax(dim=1).item()
+        score = logits_trans[0, class_idx]
+
+    model.zero_grad()
+    score.backward()
+
+    fwd_handle.remove()
+    bwd_handle.remove()
+
+    # Weights = global average of gradients over spatial dims
+    grad = gradients[0]                            # (1, C, H, W)
+    act  = activations[0]                          # (1, C, H, W)
+    weights = grad.mean(dim=[2, 3], keepdim=True)  # (1, C, 1, 1)
+
+    # Weighted combination + ReLU
+    cam = (weights * act).sum(dim=1, keepdim=True)  # (1, 1, h, w)
+    cam = F.relu(cam)
+
+    # Upsample to 224×224
+    cam = F.interpolate(cam, size=(224, 224), mode='bilinear', align_corners=False)
+    cam = cam.squeeze().detach().cpu().numpy()
+
+    # Normalise to [0, 1]
+    cam_min, cam_max = cam.min(), cam.max()
+    cam = (cam - cam_min) / (cam_max - cam_min + 1e-8)
+
+    return cam
+
+
+def plot_gradcam(model, val_loader, device, num_samples=4):
+    """
+    Visualises GradCAM overlays for both heads on a few validation samples.
+    Saves the figure as 'gradcam_visualization.png'.
+
+    Layout per row:
+        [Original image] | [Real/Fake GradCAM] | [Transform GradCAM]
+    """
+    mean = np.array([0.485, 0.456, 0.406])
+    std  = np.array([0.229, 0.224, 0.225])
+
+    rf_names    = {0: 'AI-Generated', 1: 'Real'}
+    trans_names = {0: 'Original', 1: 'Transmitted', 2: 'Re-digitized'}
+
+    # Grab one batch and keep only num_samples
+    images, labels_rf, labels_trans = next(iter(val_loader))
+    images      = images[:num_samples]
+    labels_rf   = labels_rf[:num_samples]
+    labels_trans = labels_trans[:num_samples]
+
+    fig, axes = plt.subplots(num_samples, 3, figsize=(15, num_samples * 4))
+    fig.suptitle("GradCAM — What the model looks at for each head",
+                 fontsize=15, fontweight='bold', y=1.01)
+
+    for i in range(num_samples):
+        img_tensor = images[i:i+1].clone()  # (1,3,224,224)
+
+        # Denormalise for display
+        img_np = images[i].permute(1, 2, 0).numpy()
+        img_np = (img_np * std + mean).clip(0, 1)
+
+        # Get predictions (no_grad is fine here — only for display labels)
+        with torch.no_grad():
+            logits_rf, logits_trans = model(img_tensor.to(device))
+            pred_rf    = int(torch.sigmoid(logits_rf).round().item())
+            pred_trans = int(logits_trans.argmax(dim=1).item())
+
+        # Compute GradCAM for each head
+        cam_rf    = compute_gradcam(model, img_tensor.clone(), head='real_fake',  device=device)
+        cam_trans = compute_gradcam(model, img_tensor.clone(), head='transform',
+                                    class_idx=pred_trans, device=device)
+
+        true_rf    = rf_names[labels_rf[i].item()]
+        true_trans = trans_names[labels_trans[i].item()]
+
+        def _overlay(img, cam):
+            heatmap = cm.jet(cam)[:, :, :3]
+            return (0.55 * img + 0.45 * heatmap).clip(0, 1)
+
+        # Column 0 — Original
+        axes[i, 0].imshow(img_np)
+        axes[i, 0].set_title(f"Original\nTrue: {true_rf} · {true_trans}", fontsize=10)
+        axes[i, 0].axis('off')
+
+        # Column 1 — Real/Fake GradCAM
+        axes[i, 1].imshow(_overlay(img_np, cam_rf))
+        axes[i, 1].set_title(f"Real/Fake Head\nPred: {rf_names[pred_rf]}", fontsize=10)
+        axes[i, 1].axis('off')
+
+        # Column 2 — Transform GradCAM
+        axes[i, 2].imshow(_overlay(img_np, cam_trans))
+        axes[i, 2].set_title(f"Transform Head\nPred: {trans_names[pred_trans]}", fontsize=10)
+        axes[i, 2].axis('off')
+
+    plt.tight_layout()
+    plt.savefig("gradcam_visualization.png", dpi=300, bbox_inches='tight')
+    plt.show()
+    print("Saved: gradcam_visualization.png")
