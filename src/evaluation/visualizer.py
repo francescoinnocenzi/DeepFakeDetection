@@ -4,11 +4,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 
 def evaluate_model(model, val_loader, device, quiet_mode=False):
     """
-    Runs the validation data through the model and generates all required plots.
+    Evaluates the trained model on the validation set and generates performance metrics.
+    Args:
+        model: The trained MultiTaskModel
+        val_loader: DataLoader for the validation set
+        device: torch device (CPU or GPU)
+        quiet_mode: If True, suppresses print statements and plots (for ablation study runs)
+    Returns:
+        acc_rf: Overall accuracy for the Real/Fake task
+        acc_trans: Overall accuracy for the Transformation task
     """
     model.eval()
     
@@ -46,10 +54,21 @@ def evaluate_model(model, val_loader, device, quiet_mode=False):
     acc_rf = accuracy_score(all_labels_rf, all_preds_rf)
     acc_trans = accuracy_score(all_labels_trans, all_preds_trans)
 
+    precision_rf = precision_score(all_labels_rf, all_preds_rf)
+    recall_rf = recall_score(all_labels_rf, all_preds_rf)
+    f1_rf = f1_score(all_labels_rf, all_preds_rf)
+    auc_rf = roc_auc_score(all_labels_rf, all_preds_rf)
+
     if not quiet_mode:
         print(f"\n--- Final Results ---")
         print(f"Overall Real/Fake Accuracy:   {acc_rf * 100:.2f}%")
         print(f"Overall Transform Accuracy:   {acc_trans * 100:.2f}%")
+
+        print(f"\n--- Advanced Metrics (Real/Fake Task) ---")
+        print(f"Precision: {precision_rf:.4f}")
+        print(f"Recall:    {recall_rf:.4f}")
+        print(f"F1 Score:  {f1_rf:.4f}")
+        print(f"ROC AUC:   {auc_rf:.4f}")
 
         plot_confusion_matrices(all_labels_rf, all_preds_rf, all_labels_trans, all_preds_trans)
         plot_category_breakdown(all_labels_rf, all_preds_rf, all_labels_trans)
@@ -57,7 +76,16 @@ def evaluate_model(model, val_loader, device, quiet_mode=False):
     return acc_rf, acc_trans
 
 def plot_confusion_matrices(true_rf, pred_rf, true_trans, pred_trans):
-    """Generates two side-by-side confusion matrices."""
+    """
+    Plots confusion matrices for both tasks side by side.
+    Args:
+        true_rf: Ground truth labels for Real/Fake task
+        pred_rf: Predicted labels for Real/Fake task
+        true_trans: Ground truth labels for Transformation task
+        pred_trans: Predicted labels for Transformation task
+    Returns:
+        None (saves and shows the plot)
+    """
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
     # 1. Real/Fake Confusion Matrix
@@ -85,8 +113,13 @@ def plot_confusion_matrices(true_rf, pred_rf, true_trans, pred_trans):
 
 def plot_category_breakdown(true_rf, pred_rf, true_trans):
     """
-    Objective 3: Breaks down Real/Fake accuracy across the 3 transformation 
-    categories, separated by AI vs Real images.
+    Plots a grouped bar chart showing Real/Fake accuracy for all three transformation categories separately.
+    Args:
+        true_rf: Ground truth labels for Real/Fake task
+        pred_rf: Predicted labels for Real/Fake task
+        true_trans: Ground truth labels for Transformation task (used to filter by category)
+    Returns:
+        None (saves and shows the plot)
     """
     categories = ['Original', 'Transmitted', 'Re-digitized']
     ai_accs = []
@@ -135,10 +168,11 @@ def plot_category_breakdown(true_rf, pred_rf, true_trans):
 
 def plot_ablation_study(results_dict):
     """
-    Objective 4: Plots the trade-off graph for the different alpha/beta weightings.
-    Expects a dictionary like: 
-    {'1.0_0.0': (90.5, 33.3), '0.5_0.5': (88.0, 85.0), ...}
-    where the tuple is (Real/Fake Acc, Trans Acc).
+    Plots the trade-off graph for the different alpha/beta weightings.
+    Args:
+        results_dict: A dictionary where keys are "alpha_beta" strings and values are tuples of (Real/Fake Accuracy, Transformation Accuracy).
+    Returns:
+        None (saves and shows the plot)
     """
     labels = list(results_dict.keys())
     rf_accs = [res[0] for res in results_dict.values()]

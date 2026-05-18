@@ -72,7 +72,8 @@ def run_ablation_study(train_loader, val_loader):
                 if patience_counter >= patience:
                     print(f"Early stopping triggered! Moving to next weight combination.")
                     break # This breaks the epoch loop and goes to the next alpha/beta
-            
+        
+        # The key of the dict is a tuple of (alpha, beta) and the value is another dict with all the relevant metrics
         results[(alpha, beta)] = {"train": train_loss, "val": val_loss, "val_acc_rf": val_acc_rf, "val_acc_tf": val_acc_tf}
         
     print("\n" + "="*40)

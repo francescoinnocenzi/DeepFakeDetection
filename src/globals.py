@@ -3,15 +3,16 @@
 # Data loading
 RANDOM_SEED = 42
 TRAIN_VAL_SPLIT = 0.8
-SAMPLES_PER_CLASS = 8499 #Pe tutte le immagini
+SAMPLES_PER_CLASS = 8499  # Pe tutte le immagini
 BATCH_SIZE = 64
-NUM_WORKERS = 8         #Per tutti i core cpu
+NUM_WORKERS = 4         #Per tutti i core cpu
 PIN_MEMORY = True
 
 # Training
 ABLATION_NUM_EPOCHS = 10  
 EARLY_STOP_PATIENCE = 3
 ABLATION_LEARNING_RATE = 1e-4
+FINE_TUNE_LEARNING_RATE = 1e-5
 
 # Images in the Dataset:
 #src/data/RRDataset_final/original/ai: 8500

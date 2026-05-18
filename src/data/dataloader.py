@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader, random_split
-from torchvision import transforms
 from .dataset import RRDataset
+from .transforms import base_transforms
 from ..globals import (
     BATCH_SIZE,
     NUM_WORKERS,
@@ -28,11 +28,8 @@ def get_dataloaders(
         train_loader, val_loader: DataLoaders for training and validation.
     """
     # Transform Pipeline
-    data_transform = transforms.Compose([
-        transforms.Resize((224, 224)), 
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) # Standard ImageNet normalization
-    ])
+    # Keep transforms PIL-based here; tensor conversion happens in the dataset.
+    data_transform = base_transforms
     
     # Load the balanced subset
     full_dataset = RRDataset(
