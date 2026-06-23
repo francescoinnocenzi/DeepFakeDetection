@@ -1,3 +1,4 @@
+import os
 import torch
 from torch.utils.data import DataLoader, random_split
 from .dataset import RRDataset
@@ -69,19 +70,33 @@ def get_dataloaders(
         seed=RANDOM_SEED,
     )
     
-    # Split into Train and Validation indices
-    train_size = int(train_val_split * len(full_dataset))
-    val_size = len(full_dataset) - train_size
-    generator = torch.Generator().manual_seed(RANDOM_SEED)
-    train_subset, val_subset = random_split(
-        full_dataset, 
-        [train_size, val_size], 
-        generator=generator
-    )
+    # Extract parent IDs for all samples to prevent data leakage
+    parent_ids = []
+    for filepath, _, _ in full_dataset.samples:
+        filename = os.path.basename(filepath)
+        if filename.startswith("transfer_"):
+            filename = filename[len("transfer_"):]
+        elif filename.startswith("redigital_"):
+            filename = filename[len("redigital_"):]
+        parent_id, _ = os.path.splitext(filename)
+        parent_ids.append(parent_id)
+        
+    unique_parents = sorted(list(set(parent_ids)))
+    
+    import random as py_random
+    rng = py_random.Random(RANDOM_SEED)
+    rng.shuffle(unique_parents)
+    
+    split_idx = int(train_val_split * len(unique_parents))
+    train_parents = set(unique_parents[:split_idx])
+    
+    # Partition indices based on unique parent IDs
+    train_indices = [idx for idx, pid in enumerate(parent_ids) if pid in train_parents]
+    val_indices = [idx for idx, pid in enumerate(parent_ids) if pid not in train_parents]
     
     # Wrap with DatasetSubset to apply train/val specific transforms
-    train_dataset = DatasetSubset(full_dataset, train_subset.indices, train_transforms)
-    val_dataset = DatasetSubset(full_dataset, val_subset.indices, val_transforms)
+    train_dataset = DatasetSubset(full_dataset, train_indices, train_transforms)
+    val_dataset = DatasetSubset(full_dataset, val_indices, val_transforms)
     
     # Create the Loaders
     train_loader = DataLoader(
