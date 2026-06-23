@@ -3,7 +3,7 @@
 # Data loading
 RANDOM_SEED = 42
 TRAIN_VAL_SPLIT = 0.8
-SAMPLES_PER_CLASS = 2  # Pe tutte le immagini
+SAMPLES_PER_CLASS = 6000  # Pe tutte le immagini
 BATCH_SIZE = 64
 NUM_WORKERS = 4         #Per tutti i core cpu
 PIN_MEMORY = True
