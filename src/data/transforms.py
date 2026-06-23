@@ -19,12 +19,17 @@ class RandomJPEGCompression:
             return Image.open(buf)
         return img
 
-# 1. BASE PIPELINE: Applied to ALL images (Original, Transmitted, Re-digitized)
-# We use Resize + RandomCrop instead of RandomResizedCrop to prevent pixel smearing.
-base_transforms = T.Compose([
+# 1. BASE PIPELINES: Separate for Train and Validation
+# We use Resize + RandomCrop for training and CenterCrop for validation to prevent evaluation instability.
+train_transforms = T.Compose([
     T.Resize(256),
     T.RandomCrop(224),
     T.RandomHorizontalFlip(p=0.5)
+])
+
+val_transforms = T.Compose([
+    T.Resize(256),
+    T.CenterCrop(224)
 ])
 
 # 2. DEGRADATION PIPELINE: Applied ONLY to 'Transmitted' images

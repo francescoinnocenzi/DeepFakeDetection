@@ -17,11 +17,11 @@ def run_ablation_study(train_loader, val_loader):
     
     # Example set of weight combinations
     weight_combinations = [
-        (1.0, 0.0), # Unimodal Real/Fake
-        (0.0, 1.0), # Unimodal Transform
+        # (1.0, 0.0), # Unimodal Real/Fake
+        # (0.0, 1.0), # Unimodal Transform
         (0.5, 0.5), # Balanced
-        (0.8, 0.2), # RF focused
-        (0.2, 0.8), # Transform focused
+        # (0.8, 0.2), # RF focused
+        # (0.2, 0.8), # Transform focused
     ]
     
     results = {}

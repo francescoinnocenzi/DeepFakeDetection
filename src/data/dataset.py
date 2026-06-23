@@ -2,7 +2,7 @@ import os
 import random
 from PIL import Image
 from torch.utils.data import Dataset
-from src.data.transforms import base_transforms, degradation_transforms, to_tensor_transforms
+from .transforms import degradation_transforms, to_tensor_transforms
 
 Image.MAX_IMAGE_PIXELS = None #To block warning on size of an image
 
