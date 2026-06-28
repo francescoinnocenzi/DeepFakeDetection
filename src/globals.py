@@ -1,6 +1,6 @@
 # Global constants and configurations
 
-LOSS_TYPE = 'fixed'  # 'fixed' | 'uncertainty'
+LOSS_TYPE = 'uncertainty'  # 'fixed' | 'uncertainty'
 
 # Data loading
 RANDOM_SEED = 42
@@ -9,7 +9,7 @@ VAL_SPLIT   = 0.1
 TEST_SPLIT  = 0.1
 SAMPLES_PER_CLASS = 6000  # Pe tutte le immagini
 BATCH_SIZE = 64
-NUM_WORKERS = 4         #Per tutti i core cpu
+NUM_WORKERS = 8        #Per tutti i core cpu
 PIN_MEMORY = True
 
 # Training
