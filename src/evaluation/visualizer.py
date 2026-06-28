@@ -181,7 +181,13 @@ def plot_ablation_study(results_dict):
 
     # Add labels to the dots
     for i, label in enumerate(labels):
-        plt.annotate(f"α={label.split('_')[0]}, β={label.split('_')[1]}", 
+        if str(label).lower() == 'uncertainty':
+            label_text = "Uncertainty Loss"
+        elif '_' in str(label):
+            label_text = f"α={label.split('_')[0]}, β={label.split('_')[1]}"
+        else:
+            label_text = str(label)
+        plt.annotate(label_text, 
                      (trans_accs[i], rf_accs[i]), 
                      textcoords="offset points", 
                      xytext=(0,10), ha='center')

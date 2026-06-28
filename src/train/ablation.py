@@ -88,14 +88,18 @@ def run_ablation_study(train_loader, val_loader):
                     print(f"Early stopping triggered! Moving to next weight combination.")
                     break # This breaks the epoch loop and goes to the next alpha/beta
         
-        # The key of the dict is a tuple of (alpha, beta) and the value is another dict with all the relevant metrics
-        results[(alpha, beta)] = {"train": train_loss, "val": val_loss, "val_acc_rf": val_acc_rf, "val_acc_tf": val_acc_tf}
+        # The key of the dict is a tuple of (alpha, beta) or 'uncertainty' and the value is another dict with all the relevant metrics
+        res_key = 'uncertainty' if LOSS_TYPE == 'uncertainty' else (alpha, beta)
+        results[res_key] = {"train": train_loss, "val": val_loss, "val_acc_rf": val_acc_rf, "val_acc_tf": val_acc_tf}
         
     print("\n" + "="*40)
     print("Ablation Study Complete. Summary:")
     print("="*40)
     for key, val in results.items():
-        print(f"Weights (alpha={key[0]}, beta={key[1]})")
+        if key == 'uncertainty':
+            print("Learned Uncertainty Weighting")
+        else:
+            print(f"Weights (alpha={key[0]}, beta={key[1]})")
         print(f"  -> Final Train Loss: {val['train']:.4f}")
         print(f"  -> Final Val Loss:   {val['val']:.4f}")
         print(f"  -> Final Val Acc (RF): {val['val_acc_rf']:.4f}")
