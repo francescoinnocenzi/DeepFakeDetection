@@ -229,7 +229,7 @@ def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, devic
     def _bwd_hook(module, grad_input, grad_output):
         gradients.append(grad_output[0])
 
-    target_layer = model.backbone.layer4[-1]
+    target_layer = model.spatial_backbone.layer4[-1]
     fwd_handle = target_layer.register_forward_hook(_fwd_hook)
     bwd_handle = target_layer.register_full_backward_hook(_bwd_hook)
 
