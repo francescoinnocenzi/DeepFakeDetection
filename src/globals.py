@@ -1,6 +1,6 @@
 # Global constants and configurations
 
-LOSS_TYPE = 'uncertainty'  # 'fixed' | 'uncertainty'
+LOSS_TYPE = 'fixed'  # 'fixed' | 'uncertainty'
 
 # Data loading
 RANDOM_SEED = 42
