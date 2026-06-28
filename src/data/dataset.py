@@ -2,7 +2,7 @@ import os
 import random
 from PIL import Image
 from torch.utils.data import Dataset
-from .transforms import degradation_transforms, to_tensor_transforms
+from .transforms import to_tensor_transforms
 
 Image.MAX_IMAGE_PIXELS = None #To block warning on size of an image
 
@@ -32,7 +32,6 @@ class RRDataset(Dataset):
         """Initialize the dataset by crawling the directory structure and loading a balanced subset of image paths and labels."""
         self.root_dir = root_dir
         self.transform = transform
-        self.degradation_transform = degradation_transforms
         self.to_tensor_transform = to_tensor_transforms
 
         self.samples = []  # Single list of tuples (image_path, rf_label, transform_label)
@@ -83,10 +82,6 @@ class RRDataset(Dataset):
         
         if self.transform:
             image = self.transform(image)
-
-        # Apply degradation (JPEG/Blur) ONLY if the image is 'transfer' (label 1)
-        if self.degradation_transform and label_trans == 1:
-            image = self.degradation_transform(image)
 
         if self.to_tensor_transform:
             image = self.to_tensor_transform(image)

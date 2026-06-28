@@ -1,9 +1,9 @@
 import os
 
 import torch
-from src.train.loss import MultiTaskLoss
+from src.train.loss import get_loss
 from src.train.loops import MultiTaskModel, train_epoch, validate_epoch
-from src.globals import ABLATION_LEARNING_RATE, ABLATION_NUM_EPOCHS, EARLY_STOP_PATIENCE
+from src.globals import ABLATION_LEARNING_RATE, ABLATION_NUM_EPOCHS, EARLY_STOP_PATIENCE, LOSS_TYPE
 
 # The ablation engine iterates through different weightings ($\alpha$ and $\beta$) to analyze the trade-offs between the real/fake and transformation classification accuracies.
 def run_ablation_study(train_loader, val_loader):
@@ -29,20 +29,29 @@ def run_ablation_study(train_loader, val_loader):
     save_dir = "models"
     os.makedirs(save_dir, exist_ok=True)
     
+    # Under uncertainty loss alpha/beta are ignored — run only once to avoid wasted compute
+    if LOSS_TYPE == 'uncertainty':
+        weight_combinations = [(0.5, 0.5)]
+
     for alpha, beta in weight_combinations:
 
-        # Create the dynamic filename
-        alpha_str = str(alpha).replace('.', '')
-        beta_str = str(beta).replace('.', '')
+        if LOSS_TYPE == 'uncertainty':
+            save_name = "model_uncertainty.pth"
+            print(f"\n--- Running with learned uncertainty weighting ---")
+        else:
+            alpha_str = str(alpha).replace('.', '')
+            beta_str = str(beta).replace('.', '')
+            save_name = f"model_{alpha_str}_{beta_str}.pth"
+            print(f"\n--- Running iteration with Alpha={alpha}, Beta={beta} ---")
 
-        save_name = f"model_{alpha_str}_{beta_str}.pth"
-        full_save_path = os.path.join(save_dir, save_name) 
-
-        print(f"\n--- Running iteration with Alpha={alpha}, Beta={beta} ---")
+        full_save_path = os.path.join(save_dir, save_name)
 
         model = MultiTaskModel().to(device)
-        criterion = MultiTaskLoss(alpha=alpha, beta=beta)
-        optimizer = torch.optim.Adam(model.parameters(), lr=ABLATION_LEARNING_RATE) #0.001 old
+        criterion = get_loss(alpha=alpha, beta=beta).to(device)
+        optimizer = torch.optim.Adam(
+            list(model.parameters()) + list(criterion.parameters()),
+            lr=ABLATION_LEARNING_RATE
+        )
         
         # Track the best loss for this specific combination
         best_val_loss = float('inf')
@@ -56,7 +65,13 @@ def run_ablation_study(train_loader, val_loader):
         for epoch in range(num_epochs):
             train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
             val_loss, val_acc_rf, val_acc_tf = validate_epoch(model, val_loader, criterion, device)
-            print(f"Epoch [{epoch+1}/{num_epochs}] - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+            sigma_info = ""
+            if LOSS_TYPE == 'uncertainty':
+                s1 = torch.exp(criterion.log_sigma1).item()
+                s2 = torch.exp(criterion.log_sigma2).item()
+                # 5 decimals: if these stay flat at 1.00000 the sigmas aren't training
+                sigma_info = f", σ_rf={s1:.5f}, σ_trans={s2:.5f}"
+            print(f"Epoch [{epoch+1}/{num_epochs}] - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}{sigma_info}")
 
             # Save the model if it has improved on the validation loss 
             if val_loss < best_val_loss:

@@ -10,7 +10,8 @@ from ..globals import (
     PIN_MEMORY,
     RANDOM_SEED,
     SAMPLES_PER_CLASS,
-    TRAIN_VAL_SPLIT,
+    TRAIN_SPLIT,
+    VAL_SPLIT,
 )
 
 class DatasetSubset(torch.utils.data.Dataset):
@@ -36,10 +37,6 @@ class DatasetSubset(torch.utils.data.Dataset):
         if self.transform:
             image = self.transform(image)
             
-        # Apply degradation transforms only for transfer class
-        if self.dataset.degradation_transform and label_trans == 1:
-            image = self.dataset.degradation_transform(image)
-            
         # Convert to tensor and normalize
         if self.dataset.to_tensor_transform:
             image = self.dataset.to_tensor_transform(image)
@@ -50,7 +47,8 @@ def get_dataloaders(
     data_dir,
     batch_size=BATCH_SIZE,
     total_samples_per_class=SAMPLES_PER_CLASS,
-    train_val_split=TRAIN_VAL_SPLIT,
+    train_split=TRAIN_SPLIT,
+    val_split=VAL_SPLIT,
 ):
     """
     Get DataLoaders for the Real vs. Fake Image Classification task.
@@ -58,9 +56,10 @@ def get_dataloaders(
         data_dir (str): Root directory of the dataset.
         batch_size (int): Batch size for the DataLoader.
         total_samples_per_class (int): Total number of samples per class.
-        train_val_split (float): Proportion of samples used for training.
+        train_split (float): Proportion of parent IDs used for training.
+        val_split (float): Proportion of parent IDs used for validation (remainder goes to test).
     Returns:
-        train_loader, val_loader: DataLoaders for training and validation.
+        train_loader, val_loader, test_loader: DataLoaders for training, validation, and final evaluation.
     """
     # Load the balanced subset without any base transforms (applied in SubsetWrapper instead)
     full_dataset = RRDataset(
@@ -87,31 +86,40 @@ def get_dataloaders(
     rng = py_random.Random(RANDOM_SEED)
     rng.shuffle(unique_parents)
     
-    split_idx = int(train_val_split * len(unique_parents))
-    train_parents = set(unique_parents[:split_idx])
-    
+    train_end = int(train_split * len(unique_parents))
+    val_end   = train_end + int(val_split * len(unique_parents))
+    train_parents = set(unique_parents[:train_end])
+    val_parents   = set(unique_parents[train_end:val_end])
+
     # Partition indices based on unique parent IDs
     train_indices = [idx for idx, pid in enumerate(parent_ids) if pid in train_parents]
-    val_indices = [idx for idx, pid in enumerate(parent_ids) if pid not in train_parents]
-    
-    # Wrap with DatasetSubset to apply train/val specific transforms
-    train_dataset = DatasetSubset(full_dataset, train_indices, train_transforms)
-    val_dataset = DatasetSubset(full_dataset, val_indices, val_transforms)
-    
-    # Create the Loaders
-    train_loader = DataLoader(
-        train_dataset, 
-        batch_size=batch_size, 
-        shuffle=True, 
-        num_workers=NUM_WORKERS,      # Aumentato per caricamento parallelo
-        pin_memory=PIN_MEMORY         # Ottimizzato per la tua RTX 5070
-    )
+    val_indices   = [idx for idx, pid in enumerate(parent_ids) if pid in val_parents]
+    test_indices  = [idx for idx, pid in enumerate(parent_ids) if pid not in train_parents and pid not in val_parents]
 
-    val_loader = DataLoader(
-        val_dataset, 
-        batch_size=batch_size, 
-        shuffle=True, 
+    # Wrap with DatasetSubset to apply train/val/test specific transforms
+    train_dataset = DatasetSubset(full_dataset, train_indices, train_transforms)
+    val_dataset   = DatasetSubset(full_dataset, val_indices,   val_transforms)
+    test_dataset  = DatasetSubset(full_dataset, test_indices,  val_transforms)
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY
     )
-    return train_loader, val_loader
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=NUM_WORKERS,
+        pin_memory=PIN_MEMORY
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        pin_memory=PIN_MEMORY
+    )
+    return train_loader, val_loader, test_loader

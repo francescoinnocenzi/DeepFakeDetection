@@ -21,24 +21,21 @@ def evaluate_model(model, val_loader, device, quiet_mode=False):
     model.eval()
     
     # Storage for all predictions and ground truths
-    all_preds_rf, all_labels_rf = [], []
+    all_preds_rf, all_probs_rf, all_labels_rf = [], [], []
     all_preds_trans, all_labels_trans = [], []
-    
+
     print("Running evaluation on validation set...")
     with torch.no_grad():
         for images, labels_rf, labels_trans in val_loader:
             images = images.to(device)
-            
-            # Get raw logits from model
+
             logits_rf, logits_trans = model(images)
-            
-            # Convert logits to predictions
-            # Real/Fake is BCE, so use Sigmoid + Round
-            preds_rf = torch.sigmoid(logits_rf).squeeze().round() 
-            # Transform is CE, so use Argmax
-            preds_trans = torch.argmax(logits_trans, dim=1) 
-            
-            # Move to CPU and save to lists
+
+            probs_rf = torch.sigmoid(logits_rf).squeeze()
+            preds_rf = probs_rf.round()
+            preds_trans = torch.argmax(logits_trans, dim=1)
+
+            all_probs_rf.extend(probs_rf.cpu().numpy())
             all_preds_rf.extend(preds_rf.cpu().numpy())
             all_labels_rf.extend(labels_rf.cpu().numpy())
             all_preds_trans.extend(preds_trans.cpu().numpy())
@@ -57,7 +54,7 @@ def evaluate_model(model, val_loader, device, quiet_mode=False):
     precision_rf = precision_score(all_labels_rf, all_preds_rf)
     recall_rf = recall_score(all_labels_rf, all_preds_rf)
     f1_rf = f1_score(all_labels_rf, all_preds_rf)
-    auc_rf = roc_auc_score(all_labels_rf, all_preds_rf)
+    auc_rf = roc_auc_score(all_labels_rf, all_probs_rf)
 
     if not quiet_mode:
         print(f"\n--- Final Results ---")

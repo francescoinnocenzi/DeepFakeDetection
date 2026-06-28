@@ -20,11 +20,17 @@ class RandomJPEGCompression:
         return img
 
 # 1. BASE PIPELINES: Separate for Train and Validation
-# We use Resize + RandomCrop for training and CenterCrop for validation to prevent evaluation instability.
+# Degradation (JPEG, blur, color jitter) is applied to ALL training images, not only
+# 'transfer' ones. If it were label-conditional, the model could shortcut the transform
+# classification task by detecting artifact presence, and the frequency branch would
+# learn JPEG DCT patterns instead of deepfake signatures.
 train_transforms = T.Compose([
     T.Resize(256),
     T.RandomCrop(224),
-    T.RandomHorizontalFlip(p=0.5)
+    T.RandomHorizontalFlip(p=0.5),
+    T.RandomApply([T.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1)], p=0.4),
+    T.RandomApply([T.GaussianBlur(kernel_size=3)], p=0.1),
+    RandomJPEGCompression(min_quality=30, max_quality=95, p=0.5),
 ])
 
 val_transforms = T.Compose([
@@ -32,15 +38,7 @@ val_transforms = T.Compose([
     T.CenterCrop(224)
 ])
 
-# 2. DEGRADATION PIPELINE: Applied ONLY to 'Transmitted' images
-# This intensifies the artifacts so the model learns them deeply.
-degradation_transforms = T.Compose([
-    T.RandomApply([T.ColorJitter(brightness=0.1, contrast=0.1)], p=0.3),
-    T.RandomApply([T.GaussianBlur(kernel_size=3)], p=0.2),
-    RandomJPEGCompression(min_quality=30, max_quality=85, p=0.7)
-])
-
-# 3. FINALIZATION PIPELINE: Applied to ALL images at the very end
+# 2. FINALIZATION PIPELINE: Applied to ALL images at the very end
 to_tensor_transforms = T.Compose([
     T.ToTensor(),
     T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) # ImageNet standards
