@@ -43,29 +43,29 @@ class FrequencyBranch(nn.Module):
     def __init__(self, in_channels=6):
         super(FrequencyBranch, self).__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(in_channels, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2), # 224 -> 112
-            
+
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2), # 112 -> 56
+
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2), # 112 -> 56
-            
+            nn.MaxPool2d(2), # 56 -> 28
+
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2), # 56 -> 28
-            
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((1, 1)) # -> 512 channels
+            nn.AdaptiveAvgPool2d((1, 1)) # -> 256 channels
         )
         
     def forward(self, x):
-        return self.features(x).squeeze(-1).squeeze(-1) # Output shape: (B, 512)
+        return self.features(x).squeeze(-1).squeeze(-1) # Output shape: (B, 256)
 
 class DualBranchMTLModel(nn.Module):
     """
@@ -83,9 +83,9 @@ class DualBranchMTLModel(nn.Module):
         
         # 2. Frequency Branch: Custom CNN
         self.frequency_backbone = FrequencyBranch(in_channels=6)
-        freq_features = 512
-        
-        # Total combined features: 2048 (ResNet) + 512 (FFT-CNN) = 2560
+        freq_features = 256
+
+        # Total combined features: 2048 (ResNet) + 256 (FFT-CNN) = 2304
         combined_features = spatial_features + freq_features
         
         # 3. Dual Classification Heads
@@ -98,10 +98,10 @@ class DualBranchMTLModel(nn.Module):
         
         # Stream 2: Frequency features
         freq_spectrum = get_frequency_spectrum(x) # Shape: (B, 6, 224, 224)
-        feat_freq = self.frequency_backbone(freq_spectrum) # Shape: (B, 512)
-        
+        feat_freq = self.frequency_backbone(freq_spectrum) # Shape: (B, 256)
+
         # Fusion: Concatenate feature vectors
-        fused_features = torch.cat([feat_spatial, feat_freq], dim=1) # Shape: (B, 2560)
+        fused_features = torch.cat([feat_spatial, feat_freq], dim=1) # Shape: (B, 2304)
         
         # Compute Task Logits
         logits_rf = self.head_real_fake(fused_features) # Shape: (B, 1)
@@ -113,7 +113,7 @@ class DualBranchMTLModel(nn.Module):
         """
         Custom load_state_dict to handle backward compatibility:
         - Maps older checkpoint keys starting with 'backbone.' to 'spatial_backbone.'
-        - Handles head weight size mismatches (pads older checkpoints like 2048 or 2176 features to 2560 with zero weights)
+        - Handles head weight size mismatches (pads older checkpoints like 2048 or 2560 features to 2304 with zero weights)
         - Drops mismatching keys from other components (such as older frequency backbones) and switches to strict=False
         """
         # 1. Map old backbone keys to spatial_backbone keys
