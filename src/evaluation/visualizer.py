@@ -4,16 +4,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score, roc_curve, precision_recall_curve, auc
 
-def evaluate_model(model, val_loader, device, quiet_mode=False):
+def evaluate_model(model, val_loader, device, quiet_mode=False, dataset_name="Validation"):
     """
-    Evaluates the trained model on the validation set and generates performance metrics.
+    Evaluates the trained model on the dataset and generates performance metrics.
     Args:
         model: The trained MultiTaskModel
-        val_loader: DataLoader for the validation set
+        val_loader: DataLoader for the evaluation set
         device: torch device (CPU or GPU)
         quiet_mode: If True, suppresses print statements and plots (for ablation study runs)
+        dataset_name: Name of the dataset split being evaluated (e.g., 'Validation' or 'Test')
     Returns:
         acc_rf: Overall accuracy for the Real/Fake task
         acc_trans: Overall accuracy for the Transformation task
@@ -24,7 +25,8 @@ def evaluate_model(model, val_loader, device, quiet_mode=False):
     all_preds_rf, all_probs_rf, all_labels_rf = [], [], []
     all_preds_trans, all_labels_trans = [], []
 
-    print("Running evaluation on validation set...")
+    if not quiet_mode:
+        print(f"Running evaluation on {dataset_name} set...")
     with torch.no_grad():
         for images, labels_rf, labels_trans in val_loader:
             images = images.to(device)
@@ -42,6 +44,7 @@ def evaluate_model(model, val_loader, device, quiet_mode=False):
             all_labels_trans.extend(labels_trans.cpu().numpy())
 
     # Convert to numpy arrays for easier math indexing
+    all_probs_rf = np.array(all_probs_rf)
     all_preds_rf = np.array(all_preds_rf)
     all_labels_rf = np.array(all_labels_rf)
     all_preds_trans = np.array(all_preds_trans)
@@ -69,6 +72,8 @@ def evaluate_model(model, val_loader, device, quiet_mode=False):
 
         plot_confusion_matrices(all_labels_rf, all_preds_rf, all_labels_trans, all_preds_trans)
         plot_category_breakdown(all_labels_rf, all_preds_rf, all_labels_trans)
+        plot_roc_and_pr_curves(all_labels_rf, all_probs_rf)
+        plot_prediction_distribution(all_labels_rf, all_probs_rf)
 
     return acc_rf, acc_trans
 
@@ -162,6 +167,73 @@ def plot_category_breakdown(true_rf, pred_rf, true_trans):
     plt.savefig("accuracy_breakdown.png", dpi=300)
     plt.show()
     print("Saved: accuracy_breakdown.png")
+
+def plot_roc_and_pr_curves(true_rf, probs_rf):
+    """
+    Plots the ROC curve and Precision-Recall curve for binary Real/Fake detection.
+    Args:
+        true_rf: Ground truth binary labels (0: AI, 1: Real)
+        probs_rf: Predicted probabilities for Real class
+    """
+    fpr, tpr, _ = roc_curve(true_rf, probs_rf)
+    roc_auc = auc(fpr, tpr)
+    
+    precision, recall, _ = precision_recall_curve(true_rf, probs_rf)
+    pr_auc = auc(recall, precision)
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    
+    # 1. ROC Curve
+    axes[0].plot(fpr, tpr, color='#1f77b4', lw=2.5, label=f'ROC Curve (AUC = {roc_auc:.4f})')
+    axes[0].plot([0, 1], [0, 1], color='gray', lw=1.5, linestyle='--')
+    axes[0].set_xlim([0.0, 1.0])
+    axes[0].set_ylim([0.0, 1.05])
+    axes[0].set_xlabel('False Positive Rate', fontsize=11)
+    axes[0].set_ylabel('True Positive Rate', fontsize=11)
+    axes[0].set_title('ROC Curve - Real vs Fake Detection', fontsize=12, fontweight='bold')
+    axes[0].legend(loc="lower right", fontsize=11)
+    axes[0].grid(True, linestyle='--', alpha=0.5)
+    
+    # 2. Precision-Recall Curve
+    axes[1].plot(recall, precision, color='#2ca02c', lw=2.5, label=f'PR Curve (AUC = {pr_auc:.4f})')
+    axes[1].set_xlim([0.0, 1.0])
+    axes[1].set_ylim([0.0, 1.05])
+    axes[1].set_xlabel('Recall', fontsize=11)
+    axes[1].set_ylabel('Precision', fontsize=11)
+    axes[1].set_title('Precision-Recall Curve - Real vs Fake Detection', fontsize=12, fontweight='bold')
+    axes[1].legend(loc="lower left", fontsize=11)
+    axes[1].grid(True, linestyle='--', alpha=0.5)
+    
+    plt.tight_layout()
+    plt.savefig("roc_pr_curves.png", dpi=300)
+    plt.show()
+    print("Saved: roc_pr_curves.png")
+
+def plot_prediction_distribution(true_rf, probs_rf):
+    """
+    Plots the probability density distribution for AI-Generated vs Real images.
+    Demonstrates model confidence and calibration separation.
+    """
+    fig, ax = plt.subplots(figsize=(10, 5))
+    
+    ai_probs = probs_rf[true_rf == 0]
+    real_probs = probs_rf[true_rf == 1]
+    
+    sns.kdeplot(ai_probs, fill=True, color='salmon', label='AI-Generated (True 0)', ax=ax, alpha=0.5, bw_adjust=0.5)
+    sns.kdeplot(real_probs, fill=True, color='skyblue', label='Real Images (True 1)', ax=ax, alpha=0.5, bw_adjust=0.5)
+    
+    ax.axvline(0.5, color='gray', linestyle='--', lw=1.5, label='Decision Threshold (0.5)')
+    ax.set_xlim([0.0, 1.0])
+    ax.set_xlabel('Predicted Probability (Sigmoid Output)', fontsize=11)
+    ax.set_ylabel('Density', fontsize=11)
+    ax.set_title('Prediction Confidence Separation (Sigmoid Probability Distribution)', fontsize=12, fontweight='bold')
+    ax.legend(loc='upper center', fontsize=11)
+    ax.grid(True, linestyle='--', alpha=0.5)
+    
+    plt.tight_layout()
+    plt.savefig("prediction_distribution.png", dpi=300)
+    plt.show()
+    print("Saved: prediction_distribution.png")
 
 def plot_ablation_study(results_dict):
     """
