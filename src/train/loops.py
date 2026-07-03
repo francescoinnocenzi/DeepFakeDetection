@@ -3,8 +3,8 @@ import torch.nn as nn
 from src.network.model import DualBranchMTLModel
 
 class MultiTaskModel(DualBranchMTLModel):
-    def __init__(self):
-        super(MultiTaskModel, self).__init__()
+    def __init__(self, backbone_type=None):
+        super(MultiTaskModel, self).__init__(backbone_type=backbone_type)
 
 
 def train_epoch(model, dataloader, criterion, optimizer, device):

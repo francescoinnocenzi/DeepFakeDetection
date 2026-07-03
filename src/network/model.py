@@ -1,6 +1,10 @@
 import torch
 import torch.nn as nn
-from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import (
+    resnet50, ResNet50_Weights,
+    convnext_tiny, ConvNeXt_Tiny_Weights,
+    convnext_base, ConvNeXt_Base_Weights
+)
 import math
 
 def get_frequency_spectrum(x_rgb):
@@ -73,13 +77,29 @@ class DualBranchMTLModel(nn.Module):
     - Spatial Branch: Pretrained ResNet-50
     - Frequency Branch: Custom CNN processing the normalized FFT magnitude + phase spectrum
     """
-    def __init__(self):
+    def __init__(self, backbone_type=None):
         super(DualBranchMTLModel, self).__init__()
         
-        # 1. Spatial Branch: Pretrained ResNet-50
-        self.spatial_backbone = resnet50(weights=ResNet50_Weights.DEFAULT)
-        spatial_features = self.spatial_backbone.fc.in_features # 2048
-        self.spatial_backbone.fc = nn.Identity() # Remove default head
+        if backbone_type is None:
+            from src.globals import BACKBONE_TYPE
+            backbone_type = BACKBONE_TYPE
+        self.backbone_type = backbone_type
+        
+        # 1. Spatial Branch
+        if backbone_type == 'resnet50':
+            self.spatial_backbone = resnet50(weights=ResNet50_Weights.DEFAULT)
+            spatial_features = self.spatial_backbone.fc.in_features # 2048
+            self.spatial_backbone.fc = nn.Identity() # Remove default head
+        elif backbone_type == 'convnext_tiny':
+            self.spatial_backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.DEFAULT)
+            spatial_features = self.spatial_backbone.classifier[-1].in_features # 768
+            self.spatial_backbone.classifier[-1] = nn.Identity()
+        elif backbone_type == 'convnext_base':
+            self.spatial_backbone = convnext_base(weights=ConvNeXt_Base_Weights.DEFAULT)
+            spatial_features = self.spatial_backbone.classifier[-1].in_features # 1024
+            self.spatial_backbone.classifier[-1] = nn.Identity()
+        else:
+            raise ValueError(f"Unsupported backbone_type: {backbone_type}")
         
         # 2. Frequency Branch: Custom CNN
         self.frequency_backbone = FrequencyBranch(in_channels=6)

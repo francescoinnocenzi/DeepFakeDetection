@@ -6,13 +6,18 @@ from src.train.loops import MultiTaskModel, train_epoch, validate_epoch
 from src.globals import ABLATION_LEARNING_RATE, ABLATION_NUM_EPOCHS, EARLY_STOP_PATIENCE, LOSS_TYPE
 
 # The ablation engine iterates through different weightings ($\alpha$ and $\beta$) to analyze the trade-offs between the real/fake and transformation classification accuracies.
-def run_ablation_study(train_loader, val_loader):
+def run_ablation_study(train_loader, val_loader, backbone_type=None):
     """
     Run an ablation study by varying the weights of the multi-task loss components.
     Args:
         train_loader: DataLoader for training data.
         val_loader: DataLoader for validation data.
+        backbone_type: Optional backbone identifier ('resnet50', 'convnext_tiny', etc.).
     """
+    if backbone_type is None:
+        from src.globals import BACKBONE_TYPE
+        backbone_type = BACKBONE_TYPE
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Example set of weight combinations
@@ -36,25 +41,25 @@ def run_ablation_study(train_loader, val_loader):
     for alpha, beta in weight_combinations:
 
         if LOSS_TYPE == 'uncertainty':
-            save_name = "model_uncertainty.pth"
-            print(f"\n--- Running with learned uncertainty weighting ---")
+            save_name = f"model_{backbone_type}_uncertainty.pth" if backbone_type != 'resnet50' else "model_uncertainty.pth"
+            print(f"\n--- Running [{backbone_type}] with learned uncertainty weighting ---")
         else:
             alpha_str = str(alpha).replace('.', '')
             beta_str = str(beta).replace('.', '')
-            save_name = f"model_{alpha_str}_{beta_str}.pth"
-            print(f"\n--- Running iteration with Alpha={alpha}, Beta={beta} ---")
+            save_name = f"model_{backbone_type}_{alpha_str}_{beta_str}.pth" if backbone_type != 'resnet50' else f"model_{alpha_str}_{beta_str}.pth"
+            print(f"\n--- Running [{backbone_type}] iteration with Alpha={alpha}, Beta={beta} ---")
 
         full_save_path = os.path.join(save_dir, save_name)
 
-        model = MultiTaskModel().to(device)
+        model = MultiTaskModel(backbone_type=backbone_type).to(device)
         criterion = get_loss(alpha=alpha, beta=beta).to(device)
         optimizer = torch.optim.Adam(
             list(model.parameters()) + list(criterion.parameters()),
             lr=ABLATION_LEARNING_RATE
         )
         
-        # Track the best loss for this specific combination
-        best_val_loss = float('inf')
+        # Track the best score (average validation accuracy across both tasks)
+        best_val_score = -1.0
 
         patience = EARLY_STOP_PATIENCE # How many epochs to wait before giving up
         patience_counter = 0
@@ -65,23 +70,24 @@ def run_ablation_study(train_loader, val_loader):
         for epoch in range(num_epochs):
             train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
             val_loss, val_acc_rf, val_acc_tf = validate_epoch(model, val_loader, criterion, device)
+            val_score = (val_acc_rf + val_acc_tf) / 2.0
             sigma_info = ""
             if LOSS_TYPE == 'uncertainty':
                 s1 = torch.exp(criterion.log_sigma1).item()
                 s2 = torch.exp(criterion.log_sigma2).item()
                 # 5 decimals: if these stay flat at 1.00000 the sigmas aren't training
                 sigma_info = f", σ_rf={s1:.5f}, σ_trans={s2:.5f}"
-            print(f"Epoch [{epoch+1}/{num_epochs}] - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}{sigma_info}")
+            print(f"Epoch [{epoch+1}/{num_epochs}] - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Acc (Avg): {val_score*100:.2f}%{sigma_info}")
 
-            # Save the model if it has improved on the validation loss 
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
+            # Save the model if it has improved on average validation accuracy
+            if val_score > best_val_score:
+                best_val_score = val_score
                 patience_counter = 0 # Reset the counter because the model improved!
-                print(f"Saving improved model to {full_save_path}...")
+                print(f"Saving improved model (Val Acc: {val_score*100:.2f}%) to {full_save_path}...")
                 torch.save(model.state_dict(), full_save_path)
             else:
                 patience_counter += 1 # The model got worse, increase the counter
-                print(f"No improvement. Patience: {patience_counter}/{patience}")
+                print(f"No improvement in Val Acc. Patience: {patience_counter}/{patience}")
                 
                 # Check if we have run out of patience
                 if patience_counter >= patience:

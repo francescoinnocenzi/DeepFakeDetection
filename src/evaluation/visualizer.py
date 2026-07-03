@@ -301,7 +301,12 @@ def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, devic
     def _bwd_hook(module, grad_input, grad_output):
         gradients.append(grad_output[0])
 
-    target_layer = model.spatial_backbone.layer4[-1]
+    if hasattr(model.spatial_backbone, 'layer4'):
+        target_layer = model.spatial_backbone.layer4[-1]
+    elif hasattr(model.spatial_backbone, 'features'):
+        target_layer = model.spatial_backbone.features[-1][-1]
+    else:
+        raise ValueError("Cannot determine target_layer for GradCAM.")
     fwd_handle = target_layer.register_forward_hook(_fwd_hook)
     bwd_handle = target_layer.register_full_backward_hook(_bwd_hook)
 
