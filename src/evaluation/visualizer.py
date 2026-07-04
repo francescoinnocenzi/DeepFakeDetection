@@ -235,11 +235,12 @@ def plot_prediction_distribution(true_rf, probs_rf):
     plt.show()
     print("Saved: prediction_distribution.png")
 
-def plot_ablation_study(results_dict):
+def plot_ablation_study(results_dict, save_path="ablation_study.png"):
     """
     Plots the trade-off graph for the different alpha/beta weightings.
     Args:
         results_dict: A dictionary where keys are "alpha_beta" strings and values are tuples of (Real/Fake Accuracy, Transformation Accuracy).
+        save_path: Path to save the figure (default: "ablation_study.png")
     Returns:
         None (saves and shows the plot)
     """
@@ -268,11 +269,11 @@ def plot_ablation_study(results_dict):
     plt.xlabel('Transformation Accuracy (%)')
     plt.ylabel('Real/Fake Accuracy (%)')
     plt.grid(True, linestyle='--', alpha=0.6)
-    
+
     plt.tight_layout()
-    plt.savefig("ablation_study.png", dpi=300)
+    plt.savefig(save_path, dpi=300)
     plt.show()
-    print("Saved: ablation_study.png")
+    print(f"Saved: {save_path}")
 
 
 def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, device='cpu', branch='spatial'):
@@ -360,12 +361,12 @@ def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, devic
     return cam
 
 
-def plot_gradcam(model, val_loader, device, num_samples=4):
+def plot_gradcam(model, val_loader, device, num_samples=4, save_path="gradcam_visualization.png"):
     """
     Visualises GradCAM overlays for both heads on a few validation samples,
     covering both the spatial and frequency branches (the classification heads
     read fused features from both, so either branch can drive either head).
-    Saves the figure as 'gradcam_visualization.png'.
+    Saves the figure to the specified path (default: 'gradcam_visualization.png').
 
     Layout per row:
         [Original] | [RF · Spatial] | [RF · Frequency] | [Transform · Spatial] | [Transform · Frequency]
@@ -440,6 +441,6 @@ def plot_gradcam(model, val_loader, device, num_samples=4):
         axes[i, 4].axis('off')
 
     plt.tight_layout()
-    plt.savefig("gradcam_visualization.png", dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
-    print("Saved: gradcam_visualization.png")
+    print(f"Saved: {save_path}")

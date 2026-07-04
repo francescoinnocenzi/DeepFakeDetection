@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from src.globals import LOSS_TYPE
+import src.globals
 
 
 class MultiTaskLoss(nn.Module):
@@ -48,8 +48,10 @@ class UncertaintyWeightedLoss(nn.Module):
         return total_loss, loss_rf, loss_tf
 
 
-def get_loss(alpha=0.5, beta=0.5):
-    """Returns the loss instance selected by LOSS_TYPE in globals.py."""
-    if LOSS_TYPE == 'uncertainty':
+def get_loss(alpha=0.5, beta=0.5, loss_type=None):
+    """Returns the loss instance selected by loss_type, or by LOSS_TYPE in globals.py if not given."""
+    if loss_type is None:
+        loss_type = src.globals.LOSS_TYPE
+    if loss_type == 'uncertainty':
         return UncertaintyWeightedLoss()
     return MultiTaskLoss(alpha=alpha, beta=beta)
