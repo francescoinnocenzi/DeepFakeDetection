@@ -1,0 +1,41 @@
+\section{Proposed Method}
+\subsection{Architecture}
+
+\begin{frame}{Two-Stream Multi-Task Network}
+  \begin{columns}[T,onlytextwidth]
+    \column{.46\textwidth}
+      \footnotesize
+      \begin{itemize}
+        \item Two parallel feature extractors, fused before two heads:
+        \begin{itemize}
+          \item \textbf{Spatial branch}: pretrained backbone (ResNet-50/ConvNeXt) — texture cues.
+          \item \textbf{Frequency branch}: lightweight CNN on the FFT — spectral fingerprints.
+        \end{itemize}
+        \item Concatenated features $\to$ two heads: \textbf{Real vs.\ Fake} (BCE), \textbf{Transform type} (3-class CE).
+        \item Both heads use \textbf{both} branches — GradCAM later shows which one drives what.
+      \end{itemize}
+
+    \column{.50\textwidth}
+      \centering
+      \begin{tikzpicture}[
+          box/.style={cookie node,minimum width=1.9cm,minimum height=.65cm,font=\tiny\bfseries,align=center},
+          accentbox/.style={cookie accent node,minimum width=1.9cm,minimum height=.65cm,font=\tiny\bfseries,align=center}
+        ]
+        \node[box] (img) at (2.1,5.6) {Image};
+        \node[box] (spatial) at (0.3,4.1) {Spatial\\backbone};
+        \node[box] (fft) at (3.9,4.1) {FFT};
+        \node[box] (freq) at (3.9,2.6) {Frequency\\CNN};
+        \node[accentbox] (concat) at (2.1,1.5) {Concat};
+        \node[box] (head1) at (0.3,0.1) {Head 1:\\Real/Fake};
+        \node[box] (head2) at (3.9,0.1) {Head 2:\\Transform};
+
+        \draw[cookie arrow] (img) -- (spatial);
+        \draw[cookie arrow] (img) -- (fft);
+        \draw[cookie arrow] (fft) -- (freq);
+        \draw[cookie arrow] (spatial) -- (concat);
+        \draw[cookie arrow] (freq) -- (concat);
+        \draw[cookie arrow] (concat) -- (head1);
+        \draw[cookie arrow] (concat) -- (head2);
+      \end{tikzpicture}
+  \end{columns}
+\end{frame}

@@ -1,0 +1,125 @@
+\documentclass[aspectratio=169]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,backgrounds,calc,positioning,shapes.multipart,fit}
+\usepackage{ragged2e}
+\usepackage{csquotes}
+\usepackage[
+  backend=biber,
+  style=authoryear,
+  maxcitenames=2,
+  doi=false,
+  isbn=false,
+  url=true
+]{biblatex}
+\addbibresource{refs.bib}
+
+\definecolor{detectBlue}{HTML}{2D6CDF}
+\usetheme[
+  accent=detectBlue,
+  progressbar=foot,
+  sectionpage=none,
+  subsectionpage=none,
+  numbering=fraction,
+  numberrail=subsection,
+  block=fill,
+  notes=hide,
+  toc=none,
+  closing=contact
+]{cookie}
+
+\setbeamerfont{title}{size=\fontsize{25}{28}}
+
+% -----------------------------------------------------------------------------
+% Title metadata — fill in the [TODO] fields before the final build.
+% -----------------------------------------------------------------------------
+\title[AI Image \& Alteration Detection]{AI-Generated Image \& Alteration Detection}
+\subtitle{Two-Stream Spatial--Frequency Network}
+\author[TODO]{Francesco Innocenzi 2087246\\{}Luca Festugato 2064594}
+\date{[TODO: Presentation Date]}
+\cookietagline{Project 2 \textbullet\ Real-World Scenarios}
+\cookietitleimage{assets/intro.png}
+\cookieclosingtitle{Thank You}
+\cookieclosingtext{Questions \& Discussion}
+
+% -----------------------------------------------------------------------------
+% The theme's default title art sizes the background image by HEIGHT and
+% anchors it narrowly, which leaves the accent-colored wedge showing at its
+% wider (bottom) edge for portrait images. Override to size by WIDTH instead,
+% wide enough to cover the wedge at its widest point, so the photo fills the
+% whole shape with no blue showing through.
+% -----------------------------------------------------------------------------
+\makeatletter
+\renewcommand{\cookie@drawtitleart}{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \coordinate (cookie@cuttop) at ($(current page.north east)+(-.31\paperwidth,0)$);
+    \coordinate (cookie@cutbottom) at ($(current page.south east)+(-.43\paperwidth,0)$);
+    \path[fill=cookieAccent]
+      (cookie@cuttop) -- (current page.north east) -- (current page.south east) -- (cookie@cutbottom) -- cycle;
+    \ifdefempty{\insertcookiebackground}{%
+      \draw[white,opacity=.18,line width=4pt] ($(current page.center)+(.34\paperwidth,.10\paperheight)$) circle[radius=.115\paperheight];
+      \draw[white,opacity=.12,line width=3pt] ($(current page.center)+(.27\paperwidth,-.15\paperheight)$) circle[radius=.072\paperheight];
+      \fill[white,opacity=.18] ($(current page.center)+(.40\paperwidth,-.22\paperheight)$) circle[radius=.018\paperheight];
+      \fill[white,opacity=.22] ($(current page.center)+(.34\paperwidth,.26\paperheight)$) circle[radius=.012\paperheight];
+    }{%
+      \begin{scope}
+        \clip (cookie@cuttop) -- (current page.north east) -- (current page.south east) -- (cookie@cutbottom) -- cycle;
+        \node[anchor=center,inner sep=0] at ($(current page.east)+(-.20\paperwidth,0)$)
+          {\includegraphics[width=.55\paperwidth]{\insertcookiebackground}};
+        \fill[cookieAccent,opacity=.007] (current page.south west) rectangle (current page.north east);
+      \end{scope}
+    }%
+    \ifx\inserttitlegraphic\@empty\else
+      \node[anchor=center] at ($(current page.east)+(-.16\paperwidth,0)$) {\inserttitlegraphic};
+    \fi
+  \end{tikzpicture}%
+}
+\makeatother
+
+% -----------------------------------------------------------------------------
+% Placeholder box for figures that require running main.ipynb to generate
+% (confusion matrices, ablation plots, GradCAM grids, ...). Keeps the deck
+% compiling before those assets exist; swap for \includegraphics once produced.
+% -----------------------------------------------------------------------------
+\newcommand{\pendingfigure}[2][3.1cm]{%
+  \begin{center}
+    \begin{tikzpicture}
+      \node[
+        draw=cookieMuted,
+        densely dashed,
+        line width=.9pt,
+        rounded corners=2pt,
+        minimum width=.96\linewidth,
+        minimum height=#1,
+        align=center,
+        text width=.80\linewidth,
+        font=\small\itshape,
+        text=cookieMuted
+      ] {#2};
+    \end{tikzpicture}
+  \end{center}
+}
+
+\begin{document}
+
+\input{slides/00_title.tex}
+\input{slides/01_outline.tex}
+\input{slides/02_problem_statement.tex}
+\input{slides/03_state_of_the_art.tex}
+\input{slides/04_architecture.tex}
+\input{slides/05_frequency_branch.tex}
+\input{slides/06_training_strategy.tex}
+\input{slides/07_dataset.tex}
+\input{slides/08_experimental_setup.tex}
+\input{slides/09_results.tex}
+\input{slides/10_robustness.tex}
+\input{slides/11_gradcam.tex}
+\input{slides/12_conclusions.tex}
+\input{slides/13_references.tex}
+
+\end{document}

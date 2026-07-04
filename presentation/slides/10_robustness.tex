@@ -1,0 +1,19 @@
+\subsection{Robustness \& Calibration}
+
+\begin{frame}{Robustness Across Processing Stages}
+  \begin{itemize}
+    \item Real/Fake accuracy broken down \textbf{per transform category} (original / transfer / re-digitized) — the key robustness question: does re-compression or re-digitization degrade detection?
+    \item ROC and Precision-Recall curves for the Real/Fake task.
+    \item Prediction confidence distribution (real vs.\ fake) — checks the model is well-separated/calibrated, not just accurate at the 0.5 threshold.
+  \end{itemize}
+
+  \vspace{.4em}
+  \begin{columns}[T,onlytextwidth]
+    \column{.32\textwidth}
+      \pendingfigure[2.4cm]{\texttt{accuracy\_\allowbreak breakdown.png}}
+    \column{.32\textwidth}
+      \pendingfigure[2.4cm]{\texttt{roc\_pr\_curves.png}}
+    \column{.32\textwidth}
+      \pendingfigure[2.4cm]{\texttt{prediction\_\allowbreak distribution.png}}
+  \end{columns}
+\end{frame}

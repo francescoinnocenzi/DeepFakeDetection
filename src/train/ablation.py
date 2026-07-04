@@ -60,6 +60,7 @@ def run_ablation_study(train_loader, val_loader, backbone_type=None):
         
         # Track the best score (average validation accuracy across both tasks)
         best_val_score = -1.0
+        best_metrics = None # Metrics of the epoch actually saved to full_save_path
 
         patience = EARLY_STOP_PATIENCE # How many epochs to wait before giving up
         patience_counter = 0
@@ -82,6 +83,7 @@ def run_ablation_study(train_loader, val_loader, backbone_type=None):
             # Save the model if it has improved on average validation accuracy
             if val_score > best_val_score:
                 best_val_score = val_score
+                best_metrics = {"train": train_loss, "val": val_loss, "val_acc_rf": val_acc_rf, "val_acc_tf": val_acc_tf}
                 patience_counter = 0 # Reset the counter because the model improved!
                 print(f"Saving improved model (Val Acc: {val_score*100:.2f}%) to {full_save_path}...")
                 torch.save(model.state_dict(), full_save_path)
@@ -95,8 +97,9 @@ def run_ablation_study(train_loader, val_loader, backbone_type=None):
                     break # This breaks the epoch loop and goes to the next alpha/beta
         
         # The key of the dict is a tuple of (alpha, beta) or 'uncertainty' and the value is another dict with all the relevant metrics
+        # Report the BEST epoch's metrics (the one actually saved to full_save_path), not the last epoch's
         res_key = 'uncertainty' if LOSS_TYPE == 'uncertainty' else (alpha, beta)
-        results[res_key] = {"train": train_loss, "val": val_loss, "val_acc_rf": val_acc_rf, "val_acc_tf": val_acc_tf}
+        results[res_key] = best_metrics
         
     print("\n" + "="*40)
     print("Ablation Study Complete. Summary:")
@@ -106,8 +109,8 @@ def run_ablation_study(train_loader, val_loader, backbone_type=None):
             print("Learned Uncertainty Weighting")
         else:
             print(f"Weights (alpha={key[0]}, beta={key[1]})")
-        print(f"  -> Final Train Loss: {val['train']:.4f}")
-        print(f"  -> Final Val Loss:   {val['val']:.4f}")
-        print(f"  -> Final Val Acc (RF): {val['val_acc_rf']:.4f}")
-        print(f"  -> Final Val Acc (TF): {val['val_acc_tf']:.4f}")
+        print(f"  -> Best Train Loss: {val['train']:.4f}")
+        print(f"  -> Best Val Loss:   {val['val']:.4f}")
+        print(f"  -> Best Val Acc (RF): {val['val_acc_rf']:.4f}")
+        print(f"  -> Best Val Acc (TF): {val['val_acc_tf']:.4f}")
     print("="*40)

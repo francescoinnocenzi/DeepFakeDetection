@@ -33,7 +33,7 @@ def evaluate_model(model, val_loader, device, quiet_mode=False, dataset_name="Va
 
             logits_rf, logits_trans = model(images)
 
-            probs_rf = torch.sigmoid(logits_rf).squeeze()
+            probs_rf = torch.sigmoid(logits_rf).squeeze(-1)
             preds_rf = probs_rf.round()
             preds_trans = torch.argmax(logits_trans, dim=1)
 
@@ -275,10 +275,9 @@ def plot_ablation_study(results_dict):
     print("Saved: ablation_study.png")
 
 
-def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, device='cpu'):
+def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, device='cpu', branch='spatial'):
     """
     Computes a GradCAM heatmap for a single image.
-    Hooks into model.backbone.layer4 (last conv block of ResNet-50).
 
     Args:
         model       : MultiTaskModel instance (in eval mode)
@@ -286,6 +285,10 @@ def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, devic
         head        : 'real_fake' or 'transform'
         class_idx   : class to explain (None → uses the predicted class)
         device      : torch device
+        branch      : 'spatial' (last conv block of spatial_backbone) or
+                      'frequency' (last conv block of frequency_backbone, before
+                      the AdaptiveAvgPool) — both heads read fused features from
+                      both branches, so either branch can drive either head.
 
     Returns:
         cam: (224, 224) numpy array with values in [0, 1]
@@ -301,12 +304,22 @@ def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, devic
     def _bwd_hook(module, grad_input, grad_output):
         gradients.append(grad_output[0])
 
-    if hasattr(model.spatial_backbone, 'layer4'):
-        target_layer = model.spatial_backbone.layer4[-1]
-    elif hasattr(model.spatial_backbone, 'features'):
-        target_layer = model.spatial_backbone.features[-1][-1]
+    if branch == 'spatial':
+        if hasattr(model.spatial_backbone, 'layer4'):
+            target_layer = model.spatial_backbone.layer4[-1]
+        elif hasattr(model.spatial_backbone, 'features'):
+            target_layer = model.spatial_backbone.features[-1][-1]
+        else:
+            raise ValueError("Cannot determine target_layer for GradCAM.")
+    elif branch == 'frequency':
+        # features[-2] is an inplace ReLU. A backward hook wraps its target layer's
+        # output in a view that autograd forbids feeding into an inplace op — and
+        # that holds whether we hook the ReLU itself or the BatchNorm2d right before
+        # it (whose output flows straight into that same inplace ReLU). Hook the
+        # Conv2d two steps back instead: its output feeds a non-inplace BatchNorm2d.
+        target_layer = model.frequency_backbone.features[-4]
     else:
-        raise ValueError("Cannot determine target_layer for GradCAM.")
+        raise ValueError(f"Unsupported branch: {branch}. Expected 'spatial' or 'frequency'.")
     fwd_handle = target_layer.register_forward_hook(_fwd_hook)
     bwd_handle = target_layer.register_full_backward_hook(_bwd_hook)
 
@@ -349,11 +362,13 @@ def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, devic
 
 def plot_gradcam(model, val_loader, device, num_samples=4):
     """
-    Visualises GradCAM overlays for both heads on a few validation samples.
+    Visualises GradCAM overlays for both heads on a few validation samples,
+    covering both the spatial and frequency branches (the classification heads
+    read fused features from both, so either branch can drive either head).
     Saves the figure as 'gradcam_visualization.png'.
 
     Layout per row:
-        [Original image] | [Real/Fake GradCAM] | [Transform GradCAM]
+        [Original] | [RF · Spatial] | [RF · Frequency] | [Transform · Spatial] | [Transform · Frequency]
     """
     mean = np.array([0.485, 0.456, 0.406])
     std  = np.array([0.229, 0.224, 0.225])
@@ -367,8 +382,8 @@ def plot_gradcam(model, val_loader, device, num_samples=4):
     labels_rf   = labels_rf[:num_samples]
     labels_trans = labels_trans[:num_samples]
 
-    fig, axes = plt.subplots(num_samples, 3, figsize=(15, num_samples * 4))
-    fig.suptitle("GradCAM — What the model looks at for each head",
+    fig, axes = plt.subplots(num_samples, 5, figsize=(23, num_samples * 4))
+    fig.suptitle("GradCAM — What the model looks at, per head and per branch",
                  fontsize=15, fontweight='bold', y=1.01)
 
     for i in range(num_samples):
@@ -384,10 +399,13 @@ def plot_gradcam(model, val_loader, device, num_samples=4):
             pred_rf    = int(torch.sigmoid(logits_rf).round().item())
             pred_trans = int(logits_trans.argmax(dim=1).item())
 
-        # Compute GradCAM for each head
-        cam_rf    = compute_gradcam(model, img_tensor.clone(), head='real_fake',  device=device)
-        cam_trans = compute_gradcam(model, img_tensor.clone(), head='transform',
-                                    class_idx=pred_trans, device=device)
+        # Compute GradCAM for each head, on both the spatial and frequency branches
+        cam_rf_spatial    = compute_gradcam(model, img_tensor.clone(), head='real_fake', device=device, branch='spatial')
+        cam_rf_freq       = compute_gradcam(model, img_tensor.clone(), head='real_fake', device=device, branch='frequency')
+        cam_trans_spatial = compute_gradcam(model, img_tensor.clone(), head='transform',
+                                            class_idx=pred_trans, device=device, branch='spatial')
+        cam_trans_freq    = compute_gradcam(model, img_tensor.clone(), head='transform',
+                                            class_idx=pred_trans, device=device, branch='frequency')
 
         true_rf    = rf_names[labels_rf[i].item()]
         true_trans = trans_names[labels_trans[i].item()]
@@ -401,15 +419,25 @@ def plot_gradcam(model, val_loader, device, num_samples=4):
         axes[i, 0].set_title(f"Original\nTrue: {true_rf} · {true_trans}", fontsize=10)
         axes[i, 0].axis('off')
 
-        # Column 1 — Real/Fake GradCAM
-        axes[i, 1].imshow(_overlay(img_np, cam_rf))
-        axes[i, 1].set_title(f"Real/Fake Head\nPred: {rf_names[pred_rf]}", fontsize=10)
+        # Column 1 — Real/Fake GradCAM, spatial branch
+        axes[i, 1].imshow(_overlay(img_np, cam_rf_spatial))
+        axes[i, 1].set_title(f"Real/Fake · Spatial\nPred: {rf_names[pred_rf]}", fontsize=10)
         axes[i, 1].axis('off')
 
-        # Column 2 — Transform GradCAM
-        axes[i, 2].imshow(_overlay(img_np, cam_trans))
-        axes[i, 2].set_title(f"Transform Head\nPred: {trans_names[pred_trans]}", fontsize=10)
+        # Column 2 — Real/Fake GradCAM, frequency branch
+        axes[i, 2].imshow(_overlay(img_np, cam_rf_freq))
+        axes[i, 2].set_title(f"Real/Fake · Frequency\nPred: {rf_names[pred_rf]}", fontsize=10)
         axes[i, 2].axis('off')
+
+        # Column 3 — Transform GradCAM, spatial branch
+        axes[i, 3].imshow(_overlay(img_np, cam_trans_spatial))
+        axes[i, 3].set_title(f"Transform · Spatial\nPred: {trans_names[pred_trans]}", fontsize=10)
+        axes[i, 3].axis('off')
+
+        # Column 4 — Transform GradCAM, frequency branch
+        axes[i, 4].imshow(_overlay(img_np, cam_trans_freq))
+        axes[i, 4].set_title(f"Transform · Frequency\nPred: {trans_names[pred_trans]}", fontsize=10)
+        axes[i, 4].axis('off')
 
     plt.tight_layout()
     plt.savefig("gradcam_visualization.png", dpi=300, bbox_inches='tight')

@@ -1,0 +1,22 @@
+\section{Model Evaluation}
+\subsection{Quantitative Results}
+
+\begin{frame}{Results}
+  \begin{itemize}
+    \item Report on the held-out test set for the best checkpoint(s):
+    \begin{itemize}
+      \item Real/Fake: Accuracy, Precision, Recall, F1, ROC-AUC — \texttt{[TODO: run evaluate\_model() and fill in numbers]}
+      \item Transform: Accuracy — \texttt{[TODO]}
+    \end{itemize}
+    \item Compare backbones side by side (ResNet-50 vs.\ ConvNeXt-Tiny vs.\ ConvNeXt-Base) on the same metrics.
+    \item Compare fixed-weight vs.\ uncertainty-weighted loss.
+  \end{itemize}
+
+  \vspace{.4em}
+  \begin{columns}[T,onlytextwidth]
+    \column{.48\textwidth}
+      \pendingfigure[2.6cm]{\texttt{confusion\_matrices.png}\\(both tasks)}
+    \column{.48\textwidth}
+      \pendingfigure[2.6cm]{\texttt{backbone\_comparison.png}\\(grouped bar chart across backbones)}
+  \end{columns}
+\end{frame}

@@ -1,0 +1,17 @@
+\section{Experimental Setup}
+
+\begin{frame}{Experimental Setup}
+  \centering\small
+  \begin{tabularx}{.92\textwidth}{@{}>{\bfseries}lX@{}}
+    \toprule
+    Setting & Value \\
+    \midrule
+    Backbones & ResNet-50, ConvNeXt-Tiny, ConvNeXt-Base (all ImageNet-pretrained) \\
+    Preprocessing & Resize 256 $\to$ random/center crop 224 $\to$ ImageNet normalization \\
+    Train-time augmentation & Horizontal flip; color jitter ($p{=}0.4$); light Gaussian blur ($p{=}0.1$, kept low to preserve frequency-branch signal); random JPEG re-compression (quality 30--95, $p{=}0.5$) — applied uniformly across all classes \\
+    Optimizer & Adam, LR $=10^{-4}$ (ablation phase) / $10^{-5}$ (fine-tuning phase) \\
+    Batch / epochs & Batch size 64, up to 10 epochs per configuration, early stopping patience 3 \\
+    Hardware & Auto-selected CUDA $\to$ MPS $\to$ CPU \\
+    \bottomrule
+  \end{tabularx}
+\end{frame}

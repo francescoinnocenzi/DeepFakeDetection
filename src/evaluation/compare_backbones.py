@@ -47,7 +47,7 @@ def compare_backbone_checkpoints(backbone_models, test_loader=None, data_dir="sr
                 images = images.to(device)
                 logits_rf, logits_trans = model(images)
                 
-                probs_rf = torch.sigmoid(logits_rf).squeeze()
+                probs_rf = torch.sigmoid(logits_rf).squeeze(-1)
                 preds_rf = probs_rf.round()
                 preds_trans = torch.argmax(logits_trans, dim=1)
                 
