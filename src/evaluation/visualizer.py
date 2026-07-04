@@ -8,7 +8,13 @@ from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, precisio
 
 from src.network.model import get_frequency_spectrum
 
-def evaluate_model(model, val_loader, device, quiet_mode=False, dataset_name="Validation", combo_label=None):
+
+def _sanitize_label(label):
+    """Turns a human-readable plot label into a filesystem-safe filename fragment."""
+    return label.replace(' ', '_').replace(',', '').replace('=', '').replace('.', '')
+
+
+def evaluate_model(model, val_loader, device, quiet_mode=False, dataset_name="Validation", combo_label=None, label=None, skip_plots=None):
     """
     Evaluates the trained model on the dataset and generates performance metrics.
     Args:
@@ -17,14 +23,23 @@ def evaluate_model(model, val_loader, device, quiet_mode=False, dataset_name="Va
         device: torch device (CPU or GPU)
         quiet_mode: If True, suppresses print statements and plots (for ablation study runs)
         dataset_name: Name of the dataset split being evaluated (e.g., 'Validation' or 'Test')
-        combo_label: If given (e.g. "resnet50 α=0.5, β=0.5"), only the confusion matrix and
+        combo_label: If given (e.g. "resnet50 alpha=0.5, beta=0.5"), only the confusion matrix and
             prediction-distribution plots are drawn, titled/saved per this label instead of the
-            full 4-plot suite — for looping over many checkpoints without each one overwriting
-            the last's PNGs. If None (default), draws the full 4-plot suite as before.
+            full 5-plot suite — for looping over many checkpoints without each one overwriting
+            the last's PNGs. If None (default), draws the full 5-plot suite instead.
+        label: Optional label shown in the title (and filenames) of the full 5-plot suite,
+            e.g. "resnet50 alpha=0.8, beta=0.2" — so it's clear which checkpoint produced them.
+            Ignored when combo_label is set (that path always uses combo_label for the title).
+        skip_plots: Optional set of plot names to omit from the label/default 5-plot suite —
+            e.g. {'confusion_matrix', 'prediction_distribution'} to avoid redrawing plots an
+            earlier combo_label call already produced for this same checkpoint. Valid names:
+            'confusion_matrix', 'category_breakdown', 'roc_pr', 'prediction_distribution',
+            'transform_metrics'. Ignored when combo_label is set.
     Returns:
         acc_rf: Overall accuracy for the Real/Fake task
         acc_trans: Overall accuracy for the Transformation task
     """
+    skip_plots = skip_plots or set()
     model.eval()
     
     # Storage for all predictions and ground truths
@@ -77,11 +92,28 @@ def evaluate_model(model, val_loader, device, quiet_mode=False, dataset_name="Va
         print(f"ROC AUC:   {auc_rf:.4f}")
 
         if combo_label is not None:
-            safe_label = combo_label.replace(' ', '_').replace(',', '').replace('=', '').replace('.', '')
+            safe_label = _sanitize_label(combo_label)
             plot_confusion_matrices(all_labels_rf, all_preds_rf, all_labels_trans, all_preds_trans,
                                      title_suffix=combo_label, save_path=f"confusion_matrices_{safe_label}.png")
             plot_prediction_distribution(all_labels_rf, all_probs_rf,
                                           title_suffix=combo_label, save_path=f"prediction_distribution_{safe_label}.png")
+        elif label is not None:
+            safe_label = _sanitize_label(label)
+            if 'confusion_matrix' not in skip_plots:
+                plot_confusion_matrices(all_labels_rf, all_preds_rf, all_labels_trans, all_preds_trans,
+                                         title_suffix=label, save_path=f"confusion_matrices_{safe_label}.png")
+            if 'category_breakdown' not in skip_plots:
+                plot_category_breakdown(all_labels_rf, all_preds_rf, all_labels_trans,
+                                         title_suffix=label, save_path=f"accuracy_breakdown_{safe_label}.png")
+            if 'roc_pr' not in skip_plots:
+                plot_roc_and_pr_curves(all_labels_rf, all_probs_rf,
+                                        title_suffix=label, save_path=f"roc_pr_curves_{safe_label}.png")
+            if 'prediction_distribution' not in skip_plots:
+                plot_prediction_distribution(all_labels_rf, all_probs_rf,
+                                              title_suffix=label, save_path=f"prediction_distribution_{safe_label}.png")
+            if 'transform_metrics' not in skip_plots:
+                plot_transform_class_metrics(all_labels_trans, all_preds_trans,
+                                              title_suffix=label, save_path=f"transform_class_metrics_{safe_label}.png")
         else:
             plot_confusion_matrices(all_labels_rf, all_preds_rf, all_labels_trans, all_preds_trans)
             plot_category_breakdown(all_labels_rf, all_preds_rf, all_labels_trans)
@@ -130,16 +162,19 @@ def plot_confusion_matrices(true_rf, pred_rf, true_trans, pred_trans, title_suff
     plt.show()
     print(f"Saved: {save_path}")
 
-def plot_category_breakdown(true_rf, pred_rf, true_trans):
+def plot_category_breakdown(true_rf, pred_rf, true_trans, title_suffix="", save_path="accuracy_breakdown.png"):
     """
     Plots a grouped bar chart showing Real/Fake accuracy for all three transformation categories separately.
     Args:
         true_rf: Ground truth labels for Real/Fake task
         pred_rf: Predicted labels for Real/Fake task
         true_trans: Ground truth labels for Transformation task (used to filter by category)
+        title_suffix: Optional text appended to the title (e.g. a checkpoint label)
+        save_path: Path to save the figure (default: "accuracy_breakdown.png")
     Returns:
         None (saves and shows the plot)
     """
+    suffix = f" — {title_suffix}" if title_suffix else ""
     categories = ['Original', 'Transmitted', 'Re-digitized']
     ai_accs = []
     real_accs = []
@@ -170,7 +205,7 @@ def plot_category_breakdown(true_rf, pred_rf, true_trans):
     rects2 = ax.bar(x + width/2, real_accs, width, label='Real Images Accuracy', color='skyblue')
 
     ax.set_ylabel('Accuracy (%)')
-    ax.set_title('Objective 3: Real/Fake Detection Robustness by Transformation')
+    ax.set_title(f'Objective 3: Real/Fake Detection Robustness by Transformation{suffix}')
     ax.set_xticks(x)
     ax.set_xticklabels(categories)
     ax.set_ylim(0, 110) # Set to 110 to leave room for the legend
@@ -181,17 +216,20 @@ def plot_category_breakdown(true_rf, pred_rf, true_trans):
     ax.bar_label(rects2, padding=3, fmt='%.1f%%')
 
     plt.tight_layout()
-    plt.savefig("accuracy_breakdown.png", dpi=300)
+    plt.savefig(save_path, dpi=300)
     plt.show()
-    print("Saved: accuracy_breakdown.png")
+    print(f"Saved: {save_path}")
 
-def plot_roc_and_pr_curves(true_rf, probs_rf):
+def plot_roc_and_pr_curves(true_rf, probs_rf, title_suffix="", save_path="roc_pr_curves.png"):
     """
     Plots the ROC curve and Precision-Recall curve for binary Real/Fake detection.
     Args:
         true_rf: Ground truth binary labels (0: AI, 1: Real)
         probs_rf: Predicted probabilities for Real class
+        title_suffix: Optional text appended to both subplot titles (e.g. a checkpoint label)
+        save_path: Path to save the figure (default: "roc_pr_curves.png")
     """
+    suffix = f" — {title_suffix}" if title_suffix else ""
     fpr, tpr, _ = roc_curve(true_rf, probs_rf)
     roc_auc = auc(fpr, tpr)
     
@@ -207,24 +245,24 @@ def plot_roc_and_pr_curves(true_rf, probs_rf):
     axes[0].set_ylim([0.0, 1.05])
     axes[0].set_xlabel('False Positive Rate', fontsize=11)
     axes[0].set_ylabel('True Positive Rate', fontsize=11)
-    axes[0].set_title('ROC Curve - Real vs Fake Detection', fontsize=12, fontweight='bold')
+    axes[0].set_title(f'ROC Curve - Real vs Fake Detection{suffix}', fontsize=12, fontweight='bold')
     axes[0].legend(loc="lower right", fontsize=11)
     axes[0].grid(True, linestyle='--', alpha=0.5)
-    
+
     # 2. Precision-Recall Curve
     axes[1].plot(recall, precision, color='#2ca02c', lw=2.5, label=f'PR Curve (AUC = {pr_auc:.4f})')
     axes[1].set_xlim([0.0, 1.0])
     axes[1].set_ylim([0.0, 1.05])
     axes[1].set_xlabel('Recall', fontsize=11)
     axes[1].set_ylabel('Precision', fontsize=11)
-    axes[1].set_title('Precision-Recall Curve - Real vs Fake Detection', fontsize=12, fontweight='bold')
+    axes[1].set_title(f'Precision-Recall Curve - Real vs Fake Detection{suffix}', fontsize=12, fontweight='bold')
     axes[1].legend(loc="lower left", fontsize=11)
     axes[1].grid(True, linestyle='--', alpha=0.5)
-    
+
     plt.tight_layout()
-    plt.savefig("roc_pr_curves.png", dpi=300)
+    plt.savefig(save_path, dpi=300)
     plt.show()
-    print("Saved: roc_pr_curves.png")
+    print(f"Saved: {save_path}")
 
 def plot_transform_class_metrics(true_trans, pred_trans, title_suffix="", save_path="transform_class_metrics.png"):
     """
@@ -407,8 +445,7 @@ def plot_training_curves(history, config_label, save_path=None):
         None (saves and shows the plot)
     """
     if save_path is None:
-        safe_label = config_label.replace(' ', '_').replace(',', '').replace('=', '').replace('.', '')
-        save_path = f"training_curves_{safe_label}.png"
+        save_path = f"training_curves_{_sanitize_label(config_label)}.png"
 
     epochs = range(1, len(history["train_loss"]) + 1)
 
@@ -787,7 +824,7 @@ def compute_gradcam(model, image_tensor, head='real_fake', class_idx=None, devic
     return cam
 
 
-def plot_gradcam(model, val_loader, device, num_samples=4, save_path="gradcam_visualization.png"):
+def plot_gradcam(model, val_loader, device, num_samples=4, save_path="gradcam_visualization.png", label=None):
     """
     Visualises GradCAM overlays for both heads on a few validation samples,
     covering both the spatial and frequency branches (the classification heads
@@ -796,6 +833,17 @@ def plot_gradcam(model, val_loader, device, num_samples=4, save_path="gradcam_vi
 
     Layout per row:
         [Original] | [RF · Spatial] | [RF · Frequency] | [Transform · Spatial] | [Transform · Frequency]
+
+    The spatial-branch CAMs are overlaid on the original RGB image (they live in the same
+    pixel coordinate space). The frequency-branch CAMs are overlaid on the FFT log-magnitude
+    spectrum instead — they operate on frequency_backbone's activations, whose spatial
+    dimensions correspond to frequency, not image, coordinates (center = low frequency/DC,
+    edges = high frequency), so overlaying them on the photo would misrepresent them as a
+    spatial attention map over the face/scene, which they are not.
+
+    Args:
+        label: Optional text shown in the title (e.g. a checkpoint label), so it's clear
+            which model/checkpoint produced this visualization.
     """
     mean = np.array([0.485, 0.456, 0.406])
     std  = np.array([0.229, 0.224, 0.225])
@@ -809,8 +857,9 @@ def plot_gradcam(model, val_loader, device, num_samples=4, save_path="gradcam_vi
     labels_rf   = labels_rf[:num_samples]
     labels_trans = labels_trans[:num_samples]
 
+    suffix = f" — {label}" if label else ""
     fig, axes = plt.subplots(num_samples, 5, figsize=(23, num_samples * 4))
-    fig.suptitle("GradCAM — What the model looks at, per head and per branch",
+    fig.suptitle(f"GradCAM — What the model looks at, per head and per branch{suffix}",
                  fontsize=15, fontweight='bold', y=1.01)
 
     for i in range(num_samples):
@@ -819,6 +868,13 @@ def plot_gradcam(model, val_loader, device, num_samples=4, save_path="gradcam_vi
         # Denormalise for display
         img_np = images[i].permute(1, 2, 0).numpy()
         img_np = (img_np * std + mean).clip(0, 1)
+
+        # FFT log-magnitude spectrum — the frequency branch's actual input — for the
+        # frequency-branch CAMs to be overlaid on, instead of the spatial RGB photo.
+        with torch.no_grad():
+            spectrum = get_frequency_spectrum(img_tensor).squeeze(0).numpy()  # (6, H, W)
+        magnitude = spectrum[0:3].mean(axis=0)  # average over RGB channels -> (H, W), in [0, 1]
+        magnitude_rgb = np.stack([magnitude, magnitude, magnitude], axis=-1)
 
         # Get predictions (no_grad is fine here — only for display labels)
         with torch.no_grad():
@@ -851,9 +907,10 @@ def plot_gradcam(model, val_loader, device, num_samples=4, save_path="gradcam_vi
         axes[i, 1].set_title(f"Real/Fake · Spatial\nPred: {rf_names[pred_rf]}", fontsize=10)
         axes[i, 1].axis('off')
 
-        # Column 2 — Real/Fake GradCAM, frequency branch
-        axes[i, 2].imshow(_overlay(img_np, cam_rf_freq))
-        axes[i, 2].set_title(f"Real/Fake · Frequency\nPred: {rf_names[pred_rf]}", fontsize=10)
+        # Column 2 — Real/Fake GradCAM, frequency branch (overlaid on the FFT magnitude
+        # spectrum, not the photo — center = low frequency, edges = high frequency/noise)
+        axes[i, 2].imshow(_overlay(magnitude_rgb, cam_rf_freq))
+        axes[i, 2].set_title(f"Real/Fake · Frequency (on FFT Magnitude)\nPred: {rf_names[pred_rf]}", fontsize=10)
         axes[i, 2].axis('off')
 
         # Column 3 — Transform GradCAM, spatial branch
@@ -861,9 +918,9 @@ def plot_gradcam(model, val_loader, device, num_samples=4, save_path="gradcam_vi
         axes[i, 3].set_title(f"Transform · Spatial\nPred: {trans_names[pred_trans]}", fontsize=10)
         axes[i, 3].axis('off')
 
-        # Column 4 — Transform GradCAM, frequency branch
-        axes[i, 4].imshow(_overlay(img_np, cam_trans_freq))
-        axes[i, 4].set_title(f"Transform · Frequency\nPred: {trans_names[pred_trans]}", fontsize=10)
+        # Column 4 — Transform GradCAM, frequency branch (same FFT-magnitude overlay as column 2)
+        axes[i, 4].imshow(_overlay(magnitude_rgb, cam_trans_freq))
+        axes[i, 4].set_title(f"Transform · Frequency (on FFT Magnitude)\nPred: {trans_names[pred_trans]}", fontsize=10)
         axes[i, 4].axis('off')
 
     plt.tight_layout()
