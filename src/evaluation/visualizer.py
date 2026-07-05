@@ -136,7 +136,6 @@ def plot_confusion_matrices(true_rf, pred_rf, true_trans, pred_trans, title_suff
     Returns:
         None (saves and shows the plot)
     """
-    suffix = f" — {title_suffix}" if title_suffix else ""
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
     # 1. Real/Fake Confusion Matrix
@@ -144,7 +143,7 @@ def plot_confusion_matrices(true_rf, pred_rf, true_trans, pred_trans, title_suff
     sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Blues', ax=axes[0],
                 xticklabels=['AI-Generated', 'Real'],
                 yticklabels=['AI-Generated', 'Real'])
-    axes[0].set_title(f'Task 1: Real vs Fake Detection{suffix}')
+    axes[0].set_title('Task 1: Real vs Fake Detection')
     axes[0].set_ylabel('True Label')
     axes[0].set_xlabel('Predicted Label')
 
@@ -153,11 +152,15 @@ def plot_confusion_matrices(true_rf, pred_rf, true_trans, pred_trans, title_suff
     sns.heatmap(cm_trans, annot=True, fmt='d', cmap='Greens', ax=axes[1],
                 xticklabels=['Original', 'Transmitted', 'Re-digitized'],
                 yticklabels=['Original', 'Transmitted', 'Re-digitized'])
-    axes[1].set_title(f'Task 2: Transformation Classification{suffix}')
+    axes[1].set_title('Task 2: Transformation Classification')
     axes[1].set_ylabel('True Label')
     axes[1].set_xlabel('Predicted Label')
 
-    plt.tight_layout()
+    if title_suffix:
+        fig.suptitle(title_suffix, fontsize=13, fontweight='bold')
+        plt.tight_layout(rect=[0, 0, 1, 0.93])
+    else:
+        plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.show()
     print(f"Saved: {save_path}")
@@ -174,7 +177,7 @@ def plot_category_breakdown(true_rf, pred_rf, true_trans, title_suffix="", save_
     Returns:
         None (saves and shows the plot)
     """
-    suffix = f" — {title_suffix}" if title_suffix else ""
+    suffix = f"\n{title_suffix}" if title_suffix else ""
     categories = ['Original', 'Transmitted', 'Re-digitized']
     ai_accs = []
     real_accs = []
@@ -229,7 +232,6 @@ def plot_roc_and_pr_curves(true_rf, probs_rf, title_suffix="", save_path="roc_pr
         title_suffix: Optional text appended to both subplot titles (e.g. a checkpoint label)
         save_path: Path to save the figure (default: "roc_pr_curves.png")
     """
-    suffix = f" — {title_suffix}" if title_suffix else ""
     fpr, tpr, _ = roc_curve(true_rf, probs_rf)
     roc_auc = auc(fpr, tpr)
     
@@ -245,7 +247,7 @@ def plot_roc_and_pr_curves(true_rf, probs_rf, title_suffix="", save_path="roc_pr
     axes[0].set_ylim([0.0, 1.05])
     axes[0].set_xlabel('False Positive Rate', fontsize=11)
     axes[0].set_ylabel('True Positive Rate', fontsize=11)
-    axes[0].set_title(f'ROC Curve - Real vs Fake Detection{suffix}', fontsize=12, fontweight='bold')
+    axes[0].set_title('ROC Curve - Real vs Fake Detection', fontsize=12, fontweight='bold')
     axes[0].legend(loc="lower right", fontsize=11)
     axes[0].grid(True, linestyle='--', alpha=0.5)
 
@@ -255,11 +257,15 @@ def plot_roc_and_pr_curves(true_rf, probs_rf, title_suffix="", save_path="roc_pr
     axes[1].set_ylim([0.0, 1.05])
     axes[1].set_xlabel('Recall', fontsize=11)
     axes[1].set_ylabel('Precision', fontsize=11)
-    axes[1].set_title(f'Precision-Recall Curve - Real vs Fake Detection{suffix}', fontsize=12, fontweight='bold')
+    axes[1].set_title('Precision-Recall Curve - Real vs Fake Detection', fontsize=12, fontweight='bold')
     axes[1].legend(loc="lower left", fontsize=11)
     axes[1].grid(True, linestyle='--', alpha=0.5)
 
-    plt.tight_layout()
+    if title_suffix:
+        fig.suptitle(title_suffix, fontsize=13, fontweight='bold')
+        plt.tight_layout(rect=[0, 0, 1, 0.93])
+    else:
+        plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.show()
     print(f"Saved: {save_path}")
@@ -278,7 +284,7 @@ def plot_transform_class_metrics(true_trans, pred_trans, title_suffix="", save_p
     Returns:
         None (saves and shows the plot)
     """
-    suffix = f" — {title_suffix}" if title_suffix else ""
+    suffix = f"\n{title_suffix}" if title_suffix else ""
     categories = ['Original', 'Transmitted', 'Re-digitized']
     precision, recall, f1, _ = precision_recall_fscore_support(
         true_trans, pred_trans, labels=[0, 1, 2], zero_division=0
@@ -316,7 +322,7 @@ def plot_prediction_distribution(true_rf, probs_rf, title_suffix="", save_path="
         title_suffix: Optional text appended to the title (e.g. a checkpoint label)
         save_path: Path to save the figure (default: "prediction_distribution.png")
     """
-    suffix = f" — {title_suffix}" if title_suffix else ""
+    suffix = f"\n{title_suffix}" if title_suffix else ""
     fig, ax = plt.subplots(figsize=(10, 5))
 
     ai_probs = probs_rf[true_rf == 0]

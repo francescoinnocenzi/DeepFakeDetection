@@ -140,4 +140,94 @@ def run_ablation_study(train_loader, val_loader, backbone_type=None, loss_type=N
         print(f"  -> Best Val Acc (RF): {val['val_acc_rf']:.4f}")
         print(f"  -> Best Val Acc (TF): {val['val_acc_tf']:.4f}")
     print("="*40)
+    
+    # Save summary dictionary to disk so it can be reloaded later without retraining
+    summary_path = os.path.join(save_dir, f"ablation_results_{backbone_type}_{loss_type}.pt")
+    torch.save(results, summary_path)
+    print(f"Saved summary ablation results to {summary_path}")
+    
+    return results
+
+
+def load_ablation_results(backbone_type=None, loss_type=None, save_dir="models"):
+    """
+    Loads previously saved or computed ablation study validation results from disk
+    without needing to retrain any models.
+    
+    If an explicit summary file (ablation_results_{backbone_type}_{loss_type}.pt) exists,
+    it loads and returns it. Otherwise, it automatically reconstructs the validation metrics
+    by reading the saved epoch-by-epoch history files (_history.pt) for each checkpoint.
+    
+    Args:
+        backbone_type: Optional backbone identifier ('resnet50', 'convnext_tiny', etc.).
+        loss_type: Optional 'fixed' or 'uncertainty'. Defaults to src.globals.LOSS_TYPE if not given.
+        save_dir: Directory where checkpoints and history files are stored (default: "models").
+        
+    Returns:
+        dict: Same dictionary structure returned by run_ablation_study.
+    """
+    if backbone_type is None:
+        from src.globals import BACKBONE_TYPE
+        backbone_type = BACKBONE_TYPE
+
+    if loss_type is None:
+        loss_type = src.globals.LOSS_TYPE
+
+    results_save_path = os.path.join(save_dir, f"ablation_results_{backbone_type}_{loss_type}.pt")
+    if os.path.exists(results_save_path):
+        print(f"Loading saved ablation results from {results_save_path}...")
+        return torch.load(results_save_path, map_location='cpu')
+
+    print(f"Summary file not found at {results_save_path}. Reconstructing results from saved _history.pt files...")
+    
+    if loss_type == 'uncertainty':
+        weight_combinations = [('uncertainty', None)]
+    else:
+        weight_combinations = [
+            (1.0, 0.0),
+            (0.0, 1.0),
+            (0.5, 0.5),
+            (0.8, 0.2),
+            (0.2, 0.8),
+        ]
+
+    results = {}
+    for item in weight_combinations:
+        if loss_type == 'uncertainty':
+            save_name = f"model_{backbone_type}_uncertainty.pth" if backbone_type != 'resnet50' else "model_uncertainty.pth"
+            res_key = 'uncertainty'
+        else:
+            alpha, beta = item
+            alpha_str = str(alpha).replace('.', '')
+            beta_str = str(beta).replace('.', '')
+            save_name = f"model_{backbone_type}_{alpha_str}_{beta_str}.pth" if backbone_type != 'resnet50' else f"model_{alpha_str}_{beta_str}.pth"
+            res_key = (alpha, beta)
+
+        full_save_path = os.path.join(save_dir, save_name)
+        history_path = os.path.splitext(full_save_path)[0] + "_history.pt"
+
+        if not os.path.exists(history_path):
+            print(f"[WARNING] History file not found: {history_path}. Skipping {res_key}.")
+            continue
+
+        history = torch.load(history_path, map_location='cpu')
+        
+        # Reconstruct best_metrics by finding the epoch with the highest average validation accuracy
+        val_scores = [(rf + tf) / 2.0 for rf, tf in zip(history["val_acc_rf"], history["val_acc_tf"])]
+        best_idx = val_scores.index(max(val_scores))
+        
+        best_metrics = {
+            "train": history["train_loss"][best_idx],
+            "val": history["val_loss"][best_idx],
+            "val_acc_rf": history["val_acc_rf"][best_idx],
+            "val_acc_tf": history["val_acc_tf"][best_idx]
+        }
+        results[res_key] = best_metrics
+
+    # Save reconstructed results to disk so future loads are instant
+    if results:
+        os.makedirs(save_dir, exist_ok=True)
+        torch.save(results, results_save_path)
+        print(f"Saved reconstructed ablation results to {results_save_path}")
+
     return results
