@@ -351,27 +351,30 @@ def plot_ablation_study(results_dict, save_path="ablation_study.png"):
     rf_accs = [res[0] for res in results_dict.values()]
     trans_accs = [res[1] for res in results_dict.values()]
 
-    plt.figure(figsize=(8, 6))
-    plt.scatter(trans_accs, rf_accs, color='purple', s=100)
-    plt.plot(trans_accs, rf_accs, linestyle='--', color='gray', alpha=0.5)
-
-    # Add labels to the dots
-    for i, label in enumerate(labels):
+    label_texts = []
+    for label in labels:
         if str(label).lower() == 'uncertainty':
-            label_text = "Uncertainty Loss"
+            label_texts.append("Uncertainty Loss")
         elif '_' in str(label):
-            label_text = f"α={label.split('_')[0]}, β={label.split('_')[1]}"
+            alpha, beta = str(label).split('_')
+            label_texts.append(f"α={alpha}, β={beta}")
         else:
-            label_text = str(label)
-        plt.annotate(label_text, 
-                     (trans_accs[i], rf_accs[i]), 
-                     textcoords="offset points", 
-                     xytext=(0,10), ha='center')
+            label_texts.append(str(label))
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(trans_accs, rf_accs, linestyle='--', color='gray', alpha=0.5, zorder=1)
+
+    # One color per config (instead of on-point text labels) so points that land
+    # close together — as most non-degenerate alpha/beta combos do — don't collide.
+    colors = plt.cm.tab10(np.linspace(0, 1, len(labels)))
+    for i, label_text in enumerate(label_texts):
+        plt.scatter(trans_accs[i], rf_accs[i], color=colors[i], s=100, label=label_text, zorder=2)
 
     plt.title('Objective 4: Ablation Study Trade-off')
     plt.xlabel('Transformation Accuracy (%)')
     plt.ylabel('Real/Fake Accuracy (%)')
     plt.grid(True, linestyle='--', alpha=0.6)
+    plt.legend(loc='best', framealpha=0.9)
 
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
@@ -455,7 +458,7 @@ def plot_training_curves(history, config_label, save_path=None):
     axes[0].plot(epochs, history["val_loss"], label='Val Loss', color='#d62728', marker='o')
     axes[0].set_xlabel('Epoch')
     axes[0].set_ylabel('Loss')
-    axes[0].set_title(f'Loss Curve — {config_label}')
+    axes[0].set_title('Loss Curve')
     axes[0].legend()
     axes[0].grid(True, linestyle='--', alpha=0.5)
 
@@ -465,11 +468,15 @@ def plot_training_curves(history, config_label, save_path=None):
     axes[1].plot(epochs, val_acc_tf_pct, label='Val Acc (Transform)', color='#9467bd', marker='o')
     axes[1].set_xlabel('Epoch')
     axes[1].set_ylabel('Accuracy (%)')
-    axes[1].set_title(f'Validation Accuracy — {config_label}')
+    axes[1].set_title('Validation Accuracy')
     axes[1].legend()
     axes[1].grid(True, linestyle='--', alpha=0.5)
 
-    plt.tight_layout()
+    # config_label lives on its own suptitle line (not per-axes titles) so a long
+    # label (e.g. the uncertainty run's sigma values) can't visually collide with
+    # the neighboring subplot's title the way two side-by-side axes titles can.
+    fig.suptitle(config_label)
+    plt.tight_layout(rect=[0, 0, 1, 0.93])
     plt.savefig(save_path, dpi=300)
     plt.show()
     print(f"Saved: {save_path}")
