@@ -5,5 +5,3 @@ pillow
 scikit-learn
 matplotlib
 seaborn
-opencv-python
-tqdm

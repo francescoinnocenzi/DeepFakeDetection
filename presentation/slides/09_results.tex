@@ -1,22 +1,15 @@
 \section{Model Evaluation}
 \subsection{Quantitative Results}
 
-\begin{frame}{Results}
+\begin{frame}{Results — Metrics}
+  \footnotesize
   \begin{itemize}
-    \item Report on the held-out test set for the best checkpoint(s):
-    \begin{itemize}
-      \item Real/Fake: Accuracy, Precision, Recall, F1, ROC-AUC — \texttt{[TODO: run evaluate\_model() and fill in numbers]}
-      \item Transform: Accuracy — \texttt{[TODO]}
-    \end{itemize}
-    \item Compare backbones side by side (ResNet-50 vs.\ ConvNeXt-Tiny vs.\ ConvNeXt-Base) on the same metrics.
-    \item Compare fixed-weight vs.\ uncertainty-weighted loss.
+    \item Held-out test set, best checkpoint per backbone: RF Accuracy 93.72\% / \textbf{94.75\%}, Transform Accuracy 92.20\% / \textbf{94.44\%}, F1 (RF) 0.938 / \textbf{0.946}, ROC-AUC 0.986 / \textbf{0.989} (ResNet-50 / \textbf{ConvNeXt-Tiny}).
+    \item ConvNeXt-Tiny wins on every metric (also $\sim$18\% more parameters, so capacity partly explains the gap).
   \end{itemize}
 
-  \vspace{.4em}
-  \begin{columns}[T,onlytextwidth]
-    \column{.48\textwidth}
-      \pendingfigure[2.6cm]{\texttt{confusion\_matrices.png}\\(both tasks)}
-    \column{.48\textwidth}
-      \pendingfigure[2.6cm]{\texttt{backbone\_comparison.png}\\(grouped bar chart across backbones)}
-  \end{columns}
+  \vspace{.2em}
+  \centering
+  \includegraphics[height=4.3cm]{assets/confusion_matrices.png}\\
+  {\scriptsize\color{cookieMuted} ConvNeXt-Tiny ($\alpha{=}0.2,\beta{=}0.8$), both tasks}
 \end{frame}

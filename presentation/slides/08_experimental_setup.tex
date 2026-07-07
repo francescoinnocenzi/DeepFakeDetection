@@ -2,16 +2,18 @@
 
 \begin{frame}{Experimental Setup}
   \centering\small
+  \renewcommand{\arraystretch}{1.6}
   \begin{tabularx}{.92\textwidth}{@{}>{\bfseries}lX@{}}
     \toprule
     Setting & Value \\
     \midrule
-    Backbones & ResNet-50, ConvNeXt-Tiny, ConvNeXt-Base (all ImageNet-pretrained) \\
-    Preprocessing & Resize 256 $\to$ random/center crop 224 $\to$ ImageNet normalization \\
-    Train-time augmentation & Horizontal flip; color jitter ($p{=}0.4$); light Gaussian blur ($p{=}0.1$, kept low to preserve frequency-branch signal); random JPEG re-compression (quality 30--95, $p{=}0.5$) — applied uniformly across all classes \\
-    Optimizer & Adam, LR $=10^{-4}$ (ablation phase) / $10^{-5}$ (fine-tuning phase) \\
-    Batch / epochs & Batch size 64, up to 10 epochs per configuration, early stopping patience 3 \\
-    Hardware & Auto-selected CUDA $\to$ MPS $\to$ CPU \\
+    Backbones & ResNet-50 (23.9M), ConvNeXt-Tiny (28.2M) — ImageNet-pretrained \\
+    Preprocessing & Resize 256 $\to$ crop 224 $\to$ ImageNet norm \\
+    Augmentation (train) & H-flip; color jitter ($p{=}0.4$); light blur ($p{=}0.1$); JPEG re-compression (q30--95, $p{=}0.5$) — uniform across all classes \\
+    Optimizer & Adam, LR $10^{-4}$ (ablation) \\
+    Batch / epochs & 64, $\leq$10 epochs/config, early-stop patience 3 \\
+    Configurations & 6/backbone: 5 fixed $\alpha/\beta$ + 1 uncertainty run \\
+    Hardware & RTX 5070 Ti \\
     \bottomrule
   \end{tabularx}
 \end{frame}

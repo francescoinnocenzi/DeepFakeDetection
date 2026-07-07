@@ -12,6 +12,7 @@ from ..globals import (
     SAMPLES_PER_CLASS,
     TRAIN_SPLIT,
     VAL_SPLIT,
+    TEST_SPLIT,
 )
 
 class DatasetSubset(torch.utils.data.Dataset):
@@ -49,6 +50,7 @@ def get_dataloaders(
     total_samples_per_class=SAMPLES_PER_CLASS,
     train_split=TRAIN_SPLIT,
     val_split=VAL_SPLIT,
+    test_split=TEST_SPLIT,
 ):
     """
     Get DataLoaders for the Real vs. Fake Image Classification task.
@@ -57,10 +59,18 @@ def get_dataloaders(
         batch_size (int): Batch size for the DataLoader.
         total_samples_per_class (int): Total number of samples per class.
         train_split (float): Proportion of parent IDs used for training.
-        val_split (float): Proportion of parent IDs used for validation (remainder goes to test).
+        val_split (float): Proportion of parent IDs used for validation.
+        test_split (float): Proportion of parent IDs used for testing. Only used to sanity-check
+            that train_split + val_split + test_split == 1.0; the test set itself is still built
+            from the remainder of parent IDs after the train/val slices.
     Returns:
         train_loader, val_loader, test_loader: DataLoaders for training, validation, and final evaluation.
     """
+    assert abs(train_split + val_split + test_split - 1.0) < 1e-6, (
+        f"train_split ({train_split}) + val_split ({val_split}) + test_split ({test_split}) "
+        f"must sum to 1.0"
+    )
+
     # Load the balanced subset without any base transforms (applied in SubsetWrapper instead)
     full_dataset = RRDataset(
         root_dir=data_dir,

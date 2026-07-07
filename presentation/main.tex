@@ -18,6 +18,10 @@
   url=true
 ]{biblatex}
 \addbibresource{refs.bib}
+% printbibliography resets font size per entry internally, so a plain \footnotesize
+% wrapped around it in the slide has no effect — biblatex's own \bibfont hook is the
+% only thing that actually controls bibliography-entry size.
+\renewcommand*{\bibfont}{\footnotesize}
 
 \definecolor{detectBlue}{HTML}{2D6CDF}
 \usetheme[
@@ -40,8 +44,8 @@
 % -----------------------------------------------------------------------------
 \title[AI Image \& Alteration Detection]{AI-Generated Image \& Alteration Detection}
 \subtitle{Two-Stream Spatial--Frequency Network}
-\author[TODO]{Francesco Innocenzi 2087246\\{}Luca Festugato 2064594}
-\date{[TODO: Presentation Date]}
+\author[]{Francesco Innocenzi 2087246\\{}Luca Festugato 2064594}
+\date{July 10th 2026}
 \cookietagline{Project 2 \textbullet\ Real-World Scenarios}
 \cookietitleimage{assets/intro.png}
 \cookieclosingtitle{Thank You}
@@ -117,9 +121,12 @@
 \input{slides/07_dataset.tex}
 \input{slides/08_experimental_setup.tex}
 \input{slides/09_results.tex}
-\input{slides/10_robustness.tex}
-\input{slides/11_gradcam.tex}
-\input{slides/12_conclusions.tex}
-\input{slides/13_references.tex}
+\input{slides/10_backbone_comparison.tex}
+\input{slides/11_robustness.tex}
+\input{slides/12_roc_pr.tex}
+\input{slides/13_prediction_distribution.tex}
+\input{slides/14_gradcam.tex}
+\input{slides/15_conclusions.tex}
+\input{slides/16_references.tex}
 
 \end{document}
