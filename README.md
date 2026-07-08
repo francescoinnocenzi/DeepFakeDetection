@@ -1,5 +1,7 @@
 # DeepFake Detection — Two-Stream Multi-Task Learning
 
+Project 2: Joint Detection of AI-Generated Images and Post-Processing Alterations in Real-World Scenarios
+
 Two-stream multi-task learning for AI-generated image forensics. Given a face/portrait image, the model jointly predicts:
 
 1. **Real vs. Fake** (binary) — is the image AI-generated or a real photograph?
