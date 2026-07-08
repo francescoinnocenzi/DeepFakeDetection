@@ -39,10 +39,9 @@ Two-stream multi-task learning for AI-generated image forensics. Given a face/po
 - `src/evaluation/` — `visualizer.py` (metrics, all diagnostic plots, GradCAM), `compare_backbones.py` (cross-backbone test-set comparison)
 - `main.ipynb` — orchestrates the full pipeline end to end
 - `models/` — saved checkpoints (`.pth`) + history/ablation sidecars (`.pt`)
-- `presentation/` — LaTeX Beamer slide deck (`main.tex`, `refs.bib`, `assets/`)
-- `REPORT.md` / `SLIDES_CONTENT.md` — narrative report and slide-content source
+- `presentation/` — contains pdf of presentation
 - `requirements.txt` — Python dependencies
-- Top-level `*.png` plus `analysis_plots_resnet50/`, `analysis_plots_convnext/` — summary plots produced by the notebook
+
 
 ## Dataset
 
