@@ -6,3 +6,5 @@ __pycache__/
 .ipynb_checkpoints/
 src/data/RRDataset_final/
 outputs/
+models/*.pth
+*.png

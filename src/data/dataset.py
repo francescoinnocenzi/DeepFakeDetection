@@ -2,6 +2,9 @@ import os
 import random
 from PIL import Image
 from torch.utils.data import Dataset
+from .transforms import to_tensor_transforms
+
+Image.MAX_IMAGE_PIXELS = None #To block warning on size of an image
 
 class RRDataset(Dataset):
     """
@@ -29,7 +32,8 @@ class RRDataset(Dataset):
         """Initialize the dataset by crawling the directory structure and loading a balanced subset of image paths and labels."""
         self.root_dir = root_dir
         self.transform = transform
-        
+        self.to_tensor_transform = to_tensor_transforms
+
         self.samples = []  # Single list of tuples (image_path, rf_label, transform_label)
         
         transform_dict = {'original': 0, 'transfer': 1, 'redigital': 2}
@@ -78,5 +82,8 @@ class RRDataset(Dataset):
         
         if self.transform:
             image = self.transform(image)
-            
+
+        if self.to_tensor_transform:
+            image = self.to_tensor_transform(image)
+
         return image, label_rf, label_trans
