@@ -1,8 +1,3 @@
-# Global constants and configurations
-
-LOSS_TYPE = 'fixed'  # 'fixed' | 'uncertainty'
-BACKBONE_TYPE = 'resnet50'  # 'resnet50' | 'convnext_tiny' | 'convnext_base'
-
 # Data loading
 RANDOM_SEED = 42
 TRAIN_SPLIT = 0.8   # 80% train, 10% val, 10% test

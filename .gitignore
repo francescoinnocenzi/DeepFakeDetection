@@ -8,24 +8,3 @@ src/data/RRDataset_final/
 outputs/
 models/*.pth
 *.png
-!presentation/assets/*.png
-*.md
-# LaTeX build artifacts
-*.aux
-*.bbl
-*.bcf
-*.blg
-*.fdb_latexmk
-*.fls
-*.log
-*.nav
-*.out
-*.run.xml
-*.snm
-*.synctex.gz
-*.toc
-*.vrb
-*.listing
-*.pdf
-*.sty
-!presentation/beamerthemecookie.sty
